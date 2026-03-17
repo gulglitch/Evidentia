@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont
 from .splash_screen import SplashScreen
 from .login_screen import LoginScreen
 from .profile_setup import ProfileSetupScreen
+from .cases_dashboard import CasesDashboard
 from .case_management import CaseManagement
 from .evidence_management import EvidenceManagement
 from .evidence_upload import EvidenceUpload
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
         self.splash_screen = SplashScreen()
         self.login_screen = LoginScreen()
         self.profile_setup = ProfileSetupScreen()
+        self.cases_dashboard = CasesDashboard()
         self.case_management = CaseManagement()
         self.evidence_upload = None  # Created when needed
         self.metadata_table = None  # Created when needed
@@ -64,13 +66,17 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.splash_screen)
         self.stacked_widget.addWidget(self.login_screen)
         self.stacked_widget.addWidget(self.profile_setup)
+        self.stacked_widget.addWidget(self.cases_dashboard)
         self.stacked_widget.addWidget(self.case_management)
         
         # Connect signals
         self.splash_screen.finished.connect(self._show_login)
         self.login_screen.login_successful.connect(self._handle_login)
         self.profile_setup.setup_completed.connect(self._handle_profile_completed)
+        self.cases_dashboard.new_case_requested.connect(self._show_case_management)
+        self.cases_dashboard.case_selected.connect(self._handle_case_selected)
         self.case_management.case_created.connect(self._handle_case_created)
+        self.case_management.back_requested.connect(self._show_cases_dashboard)
         
         # Setup header bar
         self._setup_header()
@@ -152,8 +158,8 @@ class MainWindow(QMainWindow):
         
         # Check if profile setup is completed
         if self.database.is_profile_completed(user_id):
-            # Profile already set up — go straight to case management
-            self._show_case_management()
+            # Profile already set up — go straight to cases dashboard
+            self._show_cases_dashboard()
         else:
             # First login — show profile setup screen
             user = self.database.get_user(user_id)
@@ -162,13 +168,27 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentWidget(self.profile_setup)
     
     def _handle_profile_completed(self):
-        """Handle profile setup completion — go to case management."""
+        """Handle profile setup completion — go to cases dashboard."""
         self.statusbar.showMessage(f"Profile set up! Welcome, {self.current_user}")
-        self._show_case_management()
+        self._show_cases_dashboard()
+    
+    def _show_cases_dashboard(self):
+        """Show the cases dashboard screen."""
+        self.cases_dashboard.load_cases()
+        self.stacked_widget.setCurrentWidget(self.cases_dashboard)
     
     def _show_case_management(self):
         """Show the case management screen."""
         self.stacked_widget.setCurrentWidget(self.case_management)
+    
+    def _handle_case_selected(self, case_id: int):
+        """Handle case selection from dashboard."""
+        self.current_case_id = case_id
+        case = self.database.get_case(case_id)
+        if case:
+            self.statusbar.showMessage(f"Opened case: {case['name']}")
+        # Navigate to evidence upload or metadata table for this case
+        self._show_metadata_table()
     
     def _show_evidence_upload(self):
         """Show the evidence upload screen."""

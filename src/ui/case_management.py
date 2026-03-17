@@ -271,6 +271,7 @@ class CaseManagement(QWidget):
     """Multi-step case management workflow."""
     
     case_created = Signal(int)  # case_id
+    back_requested = Signal()  # Signal to go back to cases dashboard
     
     def __init__(self):
         super().__init__()
@@ -313,6 +314,31 @@ class CaseManagement(QWidget):
         
         # Add top stretch to center vertically
         layout.addStretch()
+        
+        # Back button at the top left
+        back_button_layout = QHBoxLayout()
+        back_btn = QPushButton("‹ Back to Cases")
+        back_btn.setFont(QFont("Arial", 12))
+        back_btn.setFixedSize(150, 35)
+        back_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #8899aa;
+                border: 2px solid #1a4a5a;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background-color: #122a3a;
+                border-color: #40e0d0;
+                color: #e0e6ed;
+            }
+        """)
+        back_btn.clicked.connect(self.back_requested.emit)
+        back_button_layout.addWidget(back_btn)
+        back_button_layout.addStretch()
+        layout.addLayout(back_button_layout)
+        
+        layout.addSpacing(20)
         
         # Header
         header = QLabel("Create New Case")

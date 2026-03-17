@@ -6,7 +6,7 @@ Dialog for creating new investigation cases
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QTextEdit, QComboBox, QRadioButton, QButtonGroup,
-    QPushButton, QFrame
+    QPushButton, QFrame, QMessageBox, QInputDialog
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -20,8 +20,9 @@ class NewCaseDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Create New Case")
-        self.setFixedSize(600, 500)
+        self.setFixedSize(600, 580)
         self.setModal(True)
+        self.custom_case_types = self._load_custom_case_types()
         self._setup_ui()
         self._apply_styles()
     
@@ -54,19 +55,30 @@ class NewCaseDialog(QDialog):
         # Case Type
         type_label = QLabel("Case Type *")
         type_label.setFont(QFont("Arial", 14, QFont.Bold))
+        
+        type_container = QHBoxLayout()
         self.type_combo = QComboBox()
         self.type_combo.setMinimumHeight(40)
-        self.type_combo.addItems([
-            "Financial Fraud",
-            "Cybercrime", 
-            "Data Breach",
-            "Intellectual Property Theft",
-            "Corporate Investigation",
-            "Personal Investigation",
-            "Other"
-        ])
+        self._populate_case_types()
+        self.type_combo.currentTextChanged.connect(self._on_case_type_changed)
+        type_container.addWidget(self.type_combo, 1)
+        
+        # Add custom type button
+        add_type_button = QPushButton("+ Add Custom")
+        add_type_button.setMinimumHeight(40)
+        add_type_button.setMaximumWidth(120)
+        add_type_button.clicked.connect(self._add_custom_case_type)
+        type_container.addWidget(add_type_button)
+        
         form_layout.addWidget(type_label)
-        form_layout.addWidget(self.type_combo)
+        form_layout.addLayout(type_container)
+        
+        # Custom case type input (hidden by default)
+        self.custom_type_input = QLineEdit()
+        self.custom_type_input.setPlaceholderText("Enter custom case type name")
+        self.custom_type_input.setMinimumHeight(40)
+        self.custom_type_input.setVisible(False)
+        form_layout.addWidget(self.custom_type_input)
         
         # Description
         desc_label = QLabel("Description")
@@ -123,6 +135,87 @@ class NewCaseDialog(QDialog):
         
         # Connect Enter key to create
         self.name_input.returnPressed.connect(self._create_case)
+    
+    def _load_custom_case_types(self):
+        """Load custom case types from database."""
+        from ..core.database import Database
+        database = Database()
+        return database.get_custom_case_types()
+    
+    def _populate_case_types(self):
+        """Populate the case type combo box."""
+        self.type_combo.clear()
+        
+        # Default case types
+        default_types = [
+            "Financial Fraud",
+            "Cybercrime", 
+            "Data Breach",
+            "Intellectual Property Theft",
+            "Corporate Investigation",
+            "Personal Investigation"
+        ]
+        
+        self.type_combo.addItems(default_types)
+        
+        # Add custom case types
+        if self.custom_case_types:
+            self.type_combo.insertSeparator(len(default_types))
+            self.type_combo.addItems(self.custom_case_types)
+        
+        # Add "Other" option
+        self.type_combo.insertSeparator(self.type_combo.count())
+        self.type_combo.addItem("Other (Custom)")
+    
+    def _on_case_type_changed(self, text):
+        """Handle case type selection change."""
+        # Show custom input if "Other" is selected
+        is_other = text == "Other (Custom)"
+        self.custom_type_input.setVisible(is_other)
+        if is_other:
+            self.custom_type_input.setFocus()
+    
+    def _add_custom_case_type(self):
+        """Add a new custom case type."""
+        text, ok = QInputDialog.getText(
+            self,
+            "Add Custom Case Type",
+            "Enter custom case type name:",
+            QLineEdit.Normal,
+            ""
+        )
+        
+        if ok and text.strip():
+            custom_type = text.strip()
+            
+            # Check if it already exists
+            if custom_type in self.custom_case_types:
+                QMessageBox.information(
+                    self,
+                    "Already Exists",
+                    f"The case type '{custom_type}' already exists."
+                )
+                return
+            
+            # Save to database
+            from ..core.database import Database
+            database = Database()
+            if database.add_custom_case_type(custom_type):
+                self.custom_case_types.append(custom_type)
+                self._populate_case_types()
+                # Select the newly added type
+                self.type_combo.setCurrentText(custom_type)
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Custom case type '{custom_type}' has been added."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    "Failed to add custom case type."
+                )
     
     def _apply_styles(self):
         """Apply dialog styles."""
@@ -203,9 +296,18 @@ class NewCaseDialog(QDialog):
         """Create the new case."""
         name = self.name_input.text().strip()
         if not name:
+            QMessageBox.warning(self, "Validation Error", "Please enter a case name.")
             return
         
         case_type = self.type_combo.currentText()
+        
+        # If "Other" is selected, use the custom input
+        if case_type == "Other (Custom)":
+            case_type = self.custom_type_input.text().strip()
+            if not case_type:
+                QMessageBox.warning(self, "Validation Error", "Please enter a custom case type.")
+                return
+        
         description = self.desc_input.toPlainText().strip()
         
         # Get selected priority

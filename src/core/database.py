@@ -122,6 +122,15 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
+            
+            # Custom case types table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS custom_case_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type_name TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
     
     # ──────────────────────────────────────────────
     # User operations
@@ -443,3 +452,43 @@ class Database:
                 'status_breakdown': status_counts,
                 'risk_breakdown': risk_counts,
             }
+
+    # ──────────────────────────────────────────────
+    # Custom Case Types operations
+    # ──────────────────────────────────────────────
+    
+    def get_custom_case_types(self) -> List[str]:
+        """Get all custom case types."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT type_name FROM custom_case_types ORDER BY type_name")
+            return [row['type_name'] for row in cursor.fetchall()]
+    
+    def add_custom_case_type(self, type_name: str) -> bool:
+        """Add a new custom case type."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO custom_case_types (type_name) VALUES (?)",
+                    (type_name,)
+                )
+                conn.commit()
+                return True
+        except sqlite3.IntegrityError:
+            # Type already exists
+            return False
+    
+    def delete_custom_case_type(self, type_name: str) -> bool:
+        """Delete a custom case type."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM custom_case_types WHERE type_name = ?",
+                    (type_name,)
+                )
+                conn.commit()
+                return True
+        except Exception:
+            return False
