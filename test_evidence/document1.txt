@@ -1,0 +1,2 @@
+﻿This is a sample text document for testing evidence upload.
+It contains some basic text content.

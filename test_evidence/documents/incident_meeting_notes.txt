@@ -1,0 +1,18 @@
+﻿Meeting Notes - Security Incident Response
+Date: March 16, 2026
+
+Attendees:
+- Sarah Johnson (CISO)
+- Mike Chen (IT Manager)
+- Lisa Brown (HR Director)
+
+Discussion:
+1. Unauthorized access detected on file server
+2. Suspect: John Doe (IT Operations)
+3. Evidence collected: server logs, email records
+4. Next steps: Forensic analysis, legal consultation
+
+Action Items:
+- Preserve all digital evidence
+- Interview suspect
+- Review access logs for past 30 days

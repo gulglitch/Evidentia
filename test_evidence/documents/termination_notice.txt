@@ -1,0 +1,11 @@
+﻿Employee Termination Notice
+
+Employee: John Doe
+Employee ID: EMP-2045
+Department: IT Operations
+Termination Date: March 17, 2026
+Reason: Policy Violation - Unauthorized Data Access
+
+Details:
+Employee was found accessing confidential files outside of work hours.
+Security logs show multiple attempts to download sensitive data.

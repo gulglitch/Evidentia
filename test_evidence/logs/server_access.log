@@ -1,0 +1,10 @@
+﻿[2026-03-15 14:28:15] INFO: User 'jdoe' logged in from IP 192.168.1.105
+[2026-03-15 14:30:42] WARNING: User 'jdoe' accessed restricted directory /confidential/
+[2026-03-15 14:31:18] WARNING: User 'jdoe' downloaded file 'client_database.xlsx'
+[2026-03-15 14:32:05] WARNING: User 'jdoe' downloaded file 'financial_records.pdf'
+[2026-03-15 14:33:21] INFO: User 'jdoe' logged out
+[2026-03-15 22:15:33] ALERT: Failed login attempt for user 'admin' from IP 192.168.1.105
+[2026-03-15 22:16:12] ALERT: Failed login attempt for user 'admin' from IP 192.168.1.105
+[2026-03-15 22:17:45] CRITICAL: Successful login for user 'admin' from IP 192.168.1.105
+[2026-03-15 22:18:30] CRITICAL: User 'admin' accessed audit logs
+[2026-03-15 22:19:15] CRITICAL: User 'admin' attempted to delete log entries

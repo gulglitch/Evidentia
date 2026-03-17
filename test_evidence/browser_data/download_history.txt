@@ -1,0 +1,13 @@
+﻿Downloaded Files History
+
+2026-03-15 14:31:18 - client_database.xlsx (2.4 MB)
+Source: \\FileServer\Confidential\ClientData\
+Destination: C:\Users\jdoe\Downloads\
+
+2026-03-15 14:32:05 - financial_records.pdf (1.8 MB)
+Source: \\FileServer\Confidential\Finance\
+Destination: C:\Users\jdoe\Downloads\
+
+2026-03-15 14:33:00 - employee_salaries.xlsx (856 KB)
+Source: \\FileServer\Confidential\HR\
+Destination: C:\Users\jdoe\Downloads\

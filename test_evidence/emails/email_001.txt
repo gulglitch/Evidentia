@@ -1,0 +1,11 @@
+﻿From: john.doe@company.com
+To: suspicious.user@external.com
+Date: March 15, 2026 14:32
+Subject: Confidential Data Transfer
+
+Hi,
+
+I'm sending you the files you requested. Please keep this confidential.
+
+Best regards,
+John Doe

@@ -14,8 +14,11 @@ from PySide6.QtGui import QFont
 
 from .splash_screen import SplashScreen
 from .login_screen import LoginScreen
-from .dashboard import Dashboard
+from .profile_setup import ProfileSetupScreen
+from .case_management import CaseManagement
 from .evidence_management import EvidenceManagement
+from .evidence_upload import EvidenceUpload
+from .metadata_table import MetadataTable
 from .new_case_dialog import NewCaseDialog
 from ..core.database import Database
 
@@ -33,6 +36,7 @@ class MainWindow(QMainWindow):
         self.database = Database()
         self.current_case_id = None
         self.current_user = None
+        self.current_user_id = None
         
         # Setup UI
         self._setup_ui()
@@ -50,18 +54,23 @@ class MainWindow(QMainWindow):
         # Create screens
         self.splash_screen = SplashScreen()
         self.login_screen = LoginScreen()
-        self.dashboard = Dashboard()
+        self.profile_setup = ProfileSetupScreen()
+        self.case_management = CaseManagement()
+        self.evidence_upload = None  # Created when needed
+        self.metadata_table = None  # Created when needed
         self.evidence_management = None  # Created when needed
         
         # Add screens to stack
         self.stacked_widget.addWidget(self.splash_screen)
         self.stacked_widget.addWidget(self.login_screen)
-        self.stacked_widget.addWidget(self.dashboard)
+        self.stacked_widget.addWidget(self.profile_setup)
+        self.stacked_widget.addWidget(self.case_management)
         
         # Connect signals
         self.splash_screen.finished.connect(self._show_login)
         self.login_screen.login_successful.connect(self._handle_login)
-        self.dashboard.new_case_requested.connect(self._show_new_case_dialog)
+        self.profile_setup.setup_completed.connect(self._handle_profile_completed)
+        self.case_management.case_created.connect(self._handle_case_created)
         
         # Setup header bar
         self._setup_header()
@@ -128,47 +137,106 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentWidget(self.splash_screen)
     
     def _show_login(self):
-        """Show the login screen."""
-        self.stacked_widget.setCurrentWidget(self.login_screen)
+        """Show the login screen and attempt auto-login."""
+        # Try auto-login first
+        if not self.login_screen.try_auto_login():
+            # If auto-login fails, show the login screen
+            self.stacked_widget.setCurrentWidget(self.login_screen)
     
-    def _handle_login(self, username: str):
+    def _handle_login(self, username: str, user_id: int):
         """Handle successful login."""
         self.current_user = username
+        self.current_user_id = user_id
         self.logout_button.setVisible(True)
         self.statusbar.showMessage(f"Welcome, {username}")
-        self._show_dashboard()
+        
+        # Check if profile setup is completed
+        if self.database.is_profile_completed(user_id):
+            # Profile already set up — go straight to case management
+            self._show_case_management()
+        else:
+            # First login — show profile setup screen
+            user = self.database.get_user(user_id)
+            full_name = user['full_name'] if user else username
+            self.profile_setup.set_user(user_id, full_name)
+            self.stacked_widget.setCurrentWidget(self.profile_setup)
     
-    def _show_dashboard(self):
-        """Show the main dashboard."""
-        self.stacked_widget.setCurrentWidget(self.dashboard)
+    def _handle_profile_completed(self):
+        """Handle profile setup completion — go to case management."""
+        self.statusbar.showMessage(f"Profile set up! Welcome, {self.current_user}")
+        self._show_case_management()
     
-    def _show_new_case_dialog(self):
-        """Show the new case creation dialog."""
-        dialog = NewCaseDialog(self)
-        dialog.case_created.connect(self._handle_case_created)
-        dialog.exec()
+    def _show_case_management(self):
+        """Show the case management screen."""
+        self.stacked_widget.setCurrentWidget(self.case_management)
+    
+    def _show_evidence_upload(self):
+        """Show the evidence upload screen."""
+        if self.evidence_upload is None:
+            self.evidence_upload = EvidenceUpload(self.current_case_id)
+            self.evidence_upload.back_requested.connect(self._show_case_management)
+            self.evidence_upload.upload_completed.connect(self._handle_upload_completed)
+            self.stacked_widget.addWidget(self.evidence_upload)
+        else:
+            self.evidence_upload.set_case_id(self.current_case_id)
+        
+        # Update status bar with case info
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Uploading evidence for: {case['name']}")
+        
+        self.stacked_widget.setCurrentWidget(self.evidence_upload)
+    
+    def _handle_upload_completed(self, total_files: int):
+        """Handle evidence upload completion."""
+        self.statusbar.showMessage(f"Successfully uploaded {total_files} files")
+        # Navigate to metadata table to view the uploaded files
+        self._show_metadata_table()
+    
+    def _show_metadata_table(self):
+        """Show the metadata table screen."""
+        if self.metadata_table is None:
+            self.metadata_table = MetadataTable(self.current_case_id)
+            self.metadata_table.back_requested.connect(self._show_evidence_upload)
+            self.stacked_widget.addWidget(self.metadata_table)
+        else:
+            self.metadata_table.set_case_id(self.current_case_id)
+        
+        # Update status bar
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Viewing metadata for: {case['name']}")
+        
+        self.stacked_widget.setCurrentWidget(self.metadata_table)
     
     def _handle_case_created(self, case_id: int):
         """Handle new case creation."""
         self.current_case_id = case_id
         self.statusbar.showMessage(f"Case created (ID: {case_id})")
         
-        # Show evidence management for the new case
-        self._show_evidence_management()
+        # Show evidence upload screen for the new case
+        self._show_evidence_upload()
     
     def _show_evidence_management(self):
         """Show the evidence management screen."""
         if self.evidence_management is None:
             self.evidence_management = EvidenceManagement(self.current_case_id)
+            self.evidence_management.back_to_dashboard.connect(self._show_case_management)
             self.stacked_widget.addWidget(self.evidence_management)
         else:
             self.evidence_management.set_case_id(self.current_case_id)
+        
+        # Update status bar with case info
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Working on Case #{case['id']}: {case['name']}")
         
         self.stacked_widget.setCurrentWidget(self.evidence_management)
     
     def _logout(self):
         """Handle user logout."""
         self.current_user = None
+        self.current_user_id = None
         self.current_case_id = None
         self.logout_button.setVisible(False)
         self.statusbar.showMessage("Logged out")

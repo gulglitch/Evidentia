@@ -18,45 +18,65 @@ class SplashScreen(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self.setFixedSize(600, 400)
+        # Don't set fixed size, let it be flexible within the main window
         self._setup_ui()
         self._apply_styles()
         self._start_loading()
     
     def _setup_ui(self):
         """Setup the splash screen UI."""
-        layout = QVBoxLayout(self)
+        # Main layout that centers everything
+        main_layout = QVBoxLayout(self)
+        main_layout.setAlignment(Qt.AlignCenter)
+        main_layout.setContentsMargins(50, 50, 50, 50)
+        
+        # Create a container widget to hold the splash content
+        container = QWidget()
+        container.setFixedSize(500, 350)
+        container.setStyleSheet("""
+            QWidget {
+                background-color: #122a3a;
+                border: 1px solid #1a4a5a;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Layout for the container
+        layout = QVBoxLayout(container)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(20)
+        layout.setSpacing(30)
+        layout.setContentsMargins(50, 50, 50, 50)
         
         # Logo/Title
         title = QLabel("Evidentia")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Arial", 32, QFont.Bold))
+        title.setFont(QFont("Arial", 42, QFont.Bold))
+        title.setStyleSheet("color: #00d4aa; background: transparent; border: none;")
         layout.addWidget(title)
         
         # Tagline
         tagline = QLabel("Digital Forensics Made Simple")
         tagline.setAlignment(Qt.AlignCenter)
-        tagline.setFont(QFont("Arial", 14))
+        tagline.setFont(QFont("Arial", 16))
+        tagline.setStyleSheet("color: #8899aa; background: transparent; border: none;")
         layout.addWidget(tagline)
-        
-        # Version
-        version = QLabel("v1.0 - Iteration 1")
-        version.setAlignment(Qt.AlignCenter)
-        version.setFont(QFont("Arial", 10))
-        layout.addWidget(version)
         
         # Loading bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
+        self.progress_bar.setMinimumHeight(25)
         layout.addWidget(self.progress_bar)
         
         # Loading text
         self.loading_label = QLabel("Initializing...")
         self.loading_label.setAlignment(Qt.AlignCenter)
+        self.loading_label.setFont(QFont("Arial", 14))
+        self.loading_label.setStyleSheet("color: #e0e6ed; background: transparent; border: none;")
         layout.addWidget(self.loading_label)
+        
+        # Add the container to the main layout
+        main_layout.addWidget(container)
     
     def _apply_styles(self):
         """Apply splash screen styles."""
@@ -65,18 +85,18 @@ class SplashScreen(QWidget):
                 background-color: #0a1929;
                 color: #e0e6ed;
             }
-            QLabel {
-                color: #00d4aa;
-            }
             QProgressBar {
                 border: 2px solid #1a4a5a;
-                border-radius: 5px;
+                border-radius: 8px;
                 text-align: center;
                 background-color: #0d2137;
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 12px;
             }
             QProgressBar::chunk {
                 background-color: #40e0d0;
-                border-radius: 3px;
+                border-radius: 6px;
             }
         """)
     

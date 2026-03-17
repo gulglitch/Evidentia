@@ -1,0 +1,11 @@
+﻿Browser History Export - Chrome
+User: John Doe
+Export Date: March 16, 2026
+
+2026-03-15 14:25:00 - https://www.dropbox.com/login
+2026-03-15 14:26:30 - https://www.dropbox.com/upload
+2026-03-15 14:35:12 - https://www.protonmail.com/
+2026-03-15 14:36:45 - https://www.protonmail.com/compose
+2026-03-15 22:10:00 - https://www.google.com/search?q=how+to+delete+windows+event+logs
+2026-03-15 22:12:30 - https://www.reddit.com/r/sysadmin/delete_audit_logs
+2026-03-15 22:14:15 - https://github.com/tools/log-cleaner

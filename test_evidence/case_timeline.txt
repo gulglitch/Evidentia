@@ -1,0 +1,31 @@
+﻿CASE TIMELINE - Data Breach Investigation
+Case Number: 2026-INV-001
+Investigator: Detective Sarah Johnson
+
+March 15, 2026
+--------------
+14:28 - Suspect John Doe logs into workstation
+14:30 - Unauthorized access to confidential directory detected
+14:31 - Download of client database (2.4 MB)
+14:32 - Download of financial records (1.8 MB)
+14:33 - Download of employee salary information (856 KB)
+14:33 - Suspect logs out
+22:15 - Multiple failed admin login attempts from suspect's workstation
+22:17 - Successful admin login (compromised credentials suspected)
+22:18 - Access to audit logs
+22:19 - Attempted deletion of log entries (blocked by security system)
+
+March 16, 2026
+--------------
+09:00 - Security team discovers breach
+09:15 - Security alert sent to all staff
+10:30 - Suspect's workstation seized for forensic analysis
+11:00 - Suspect interviewed by HR and Security
+14:00 - Suspect placed on administrative leave
+
+March 17, 2026
+--------------
+09:00 - Forensic analysis begins
+12:00 - Evidence of data exfiltration confirmed
+15:00 - Termination notice issued
+16:00 - Legal team notified

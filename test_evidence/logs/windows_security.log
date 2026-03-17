@@ -1,0 +1,20 @@
+﻿Windows Security Event Log Extract
+Computer: WORKSTATION-JD-2045
+
+Event ID 4624 - Successful Logon
+Date: 2026-03-15 14:28:15
+User: DOMAIN\jdoe
+Logon Type: 3 (Network)
+Source IP: 192.168.1.105
+
+Event ID 4663 - Object Access
+Date: 2026-03-15 14:30:42
+User: DOMAIN\jdoe
+Object: \\FileServer\Confidential\ClientData
+Access: Read
+
+Event ID 5140 - Network Share Access
+Date: 2026-03-15 14:31:18
+User: DOMAIN\jdoe
+Share: \\FileServer\Confidential
+File: client_database.xlsx

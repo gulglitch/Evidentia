@@ -1,0 +1,11 @@
+﻿From: admin@company.com
+To: all-staff@company.com
+Date: March 16, 2026 09:15
+Subject: Security Alert - Unauthorized Access Detected
+
+Dear Team,
+
+We have detected unauthorized access to our file server on March 15, 2026.
+Please change your passwords immediately and report any suspicious activity.
+
+IT Security Team
