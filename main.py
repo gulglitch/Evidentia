@@ -16,16 +16,24 @@ def main():
     app.setOrganizationName("Evidentia Forensics")
     app.setApplicationVersion("1.0")
     
-    # Create and show main window
+    # Create main window
     window = MainWindow()
-    window.show()
+    
+    # Get available screen geometry (excludes taskbar)
+    screen = app.primaryScreen().availableGeometry()
+    
+    # Calculate responsive window size (80% of available screen, max 1600x1000)
+    window_width = min(int(screen.width() * 0.8), 1600)
+    window_height = min(int(screen.height() * 0.85), 1000)
+    window.resize(window_width, window_height)
     
     # Center the window on screen
-    screen = app.primaryScreen().geometry()
     window.move(
-        (screen.width() - window.width()) // 2,
-        (screen.height() - window.height()) // 2
+        screen.x() + (screen.width() - window.width()) // 2,
+        screen.y() + (screen.height() - window.height()) // 2
     )
+    
+    window.show()
     
     sys.exit(app.exec())
 

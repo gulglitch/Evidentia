@@ -30,8 +30,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Evidentia - Digital Forensics Timeline Tool")
-        self.setMinimumSize(1400, 900)
-        self.resize(1600, 1000)
+        self.setMinimumSize(800, 600)
+        # Start with a reasonable default size that will be adjusted to screen
+        self.resize(1200, 800)
         
         # Initialize core components
         self.database = Database()
