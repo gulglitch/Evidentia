@@ -7,8 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QProgressBar
 )
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QPixmap, QPalette, QBrush
-import os
+from PySide6.QtGui import QFont
 
 
 class SplashScreen(QWidget):
@@ -80,51 +79,26 @@ class SplashScreen(QWidget):
         main_layout.addWidget(container)
     
     def _apply_styles(self):
-        """Apply splash screen styles with background image."""
-        # Set background image on the main widget (outside the container)
-        bg_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "bg_photo_3.png")
-        if os.path.exists(bg_path):
-            # Apply background to the main widget only
-            self.setStyleSheet(f"""
-                SplashScreen {{
-                    background-image: url({bg_path.replace(os.sep, '/')});
-                    background-position: center;
-                    background-repeat: no-repeat;
-                    background-color: #0a1929;
-                }}
-                QProgressBar {{
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    text-align: center;
-                    background-color: #0d2137;
-                    color: #ffffff;
-                    font-weight: bold;
-                    font-size: 12px;
-                }}
-                QProgressBar::chunk {{
-                    background-color: #40e0d0;
-                    border-radius: 6px;
-                }}
-            """)
-        else:
-            self.setStyleSheet("""
-                SplashScreen {
-                    background-color: #0a1929;
-                }
-                QProgressBar {
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    text-align: center;
-                    background-color: #0d2137;
-                    color: #ffffff;
-                    font-weight: bold;
-                    font-size: 12px;
-                }
-                QProgressBar::chunk {
-                    background-color: #40e0d0;
-                    border-radius: 6px;
-                }
-            """)
+        """Apply splash screen styles."""
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0a1929;
+                color: #e0e6ed;
+            }
+            QProgressBar {
+                border: 2px solid #1a4a5a;
+                border-radius: 8px;
+                text-align: center;
+                background-color: #0d2137;
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QProgressBar::chunk {
+                background-color: #40e0d0;
+                border-radius: 6px;
+            }
+        """)
     
     def _start_loading(self):
         """Start the loading animation."""

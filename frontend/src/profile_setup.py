@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
-import os
 
 from backend.app.database import Database
 
@@ -341,52 +340,27 @@ class ProfileSetupScreen(QWidget):
         main_layout.addStretch()
     
     def _apply_styles(self):
-        """Apply screen styles with background image."""
-        # Set background image on the main widget (outside the cards)
-        bg_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "bg_photo_1.png")
-        if os.path.exists(bg_path):
-            self.setStyleSheet(f"""
-                ProfileSetupScreen {{
-                    background-image: url({bg_path.replace(os.sep, '/')});
-                    background-position: center;
-                    background-repeat: no-repeat;
-                    background-color: #0a1929;
-                }}
-                QLineEdit {{
-                    background-color: rgba(13, 33, 55, 0.95);
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    padding: 8px 14px;
-                    color: #e0e6ed;
-                }}
-                QLineEdit:focus {{
-                    border-color: #40e0d0;
-                    background-color: rgba(18, 42, 58, 0.95);
-                }}
-                QLineEdit::placeholder {{
-                    color: #6c7086;
-                }}
-            """)
-        else:
-            self.setStyleSheet("""
-                ProfileSetupScreen {
-                    background-color: #0a1929;
-                }
-                QLineEdit {
-                    background-color: #0d2137;
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    padding: 8px 14px;
-                    color: #e0e6ed;
-                }
-                QLineEdit:focus {
-                    border-color: #40e0d0;
-                    background-color: #122a3a;
-                }
-                QLineEdit::placeholder {
-                    color: #6c7086;
-                }
-            """)
+        """Apply screen styles."""
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0a1929;
+                color: #e0e6ed;
+            }
+            QLineEdit {
+                background-color: #0d2137;
+                border: 2px solid #1a4a5a;
+                border-radius: 8px;
+                padding: 8px 14px;
+                color: #e0e6ed;
+            }
+            QLineEdit:focus {
+                border-color: #40e0d0;
+                background-color: #122a3a;
+            }
+            QLineEdit::placeholder {
+                color: #6c7086;
+            }
+        """)
     
     def _on_role_selected(self, role_name: str):
         """Handle role card selection."""

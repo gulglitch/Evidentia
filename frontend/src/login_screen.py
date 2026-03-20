@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QSettings
 from PySide6.QtGui import QFont
-import os
 
 from backend.app.database import Database
 
@@ -299,119 +298,63 @@ class LoginScreen(QWidget):
         self.form_stack.addWidget(container)
 
     def _apply_styles(self):
-        """Apply login screen styles with background image."""
-        # Set background image on the main widget (outside the form containers)
-        bg_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "bg_photo_2.png")
-        if os.path.exists(bg_path):
-            self.setStyleSheet(f"""
-                LoginScreen {{
-                    background-image: url({bg_path.replace(os.sep, '/')});
-                    background-position: center;
-                    background-repeat: no-repeat;
-                    background-color: #0a1929;
-                }}
-                QWidget#loginContainer, QWidget#signupContainer {{
-                    background-color: rgba(18, 42, 58, 0.95);
-                    border: 1px solid #1a4a5a;
-                    border-radius: 12px;
-                }}
-                QLineEdit {{
-                    background-color: #0d2137;
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    padding: 10px 14px;
-                    font-size: 13px;
-                    color: #e0e6ed;
-                }}
-                QLineEdit:focus {{
-                    border-color: #40e0d0;
-                    background-color: #122a3a;
-                }}
-                QLineEdit::placeholder {{
-                    color: #6c7086;
-                }}
-                QPushButton {{
-                    background-color: #40e0d0;
-                    color: #0a1929;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 10px 24px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }}
-                QPushButton:hover {{
-                    background-color: #2dd4bf;
-                }}
-                QPushButton:pressed {{
-                    background-color: #00d4aa;
-                }}
-                QCheckBox {{
-                    color: #e0e6ed;
-                    spacing: 10px;
-                }}
-                QCheckBox::indicator {{
-                    width: 18px;
-                    height: 18px;
-                    border: 2px solid #2a6a7a;
-                    border-radius: 4px;
-                    background-color: #0d2137;
-                }}
-                QCheckBox::indicator:checked {{
-                    background-color: #40e0d0;
-                    border-color: #40e0d0;
-                }}
-            """)
-        else:
-            self.setStyleSheet("""
-                LoginScreen {
-                    background-color: #0a1929;
-                }
-                QLineEdit {
-                    background-color: #0d2137;
-                    border: 2px solid #1a4a5a;
-                    border-radius: 8px;
-                    padding: 10px 14px;
-                    font-size: 13px;
-                    color: #e0e6ed;
-                }
-                QLineEdit:focus {
-                    border-color: #40e0d0;
-                    background-color: #122a3a;
-                }
-                QLineEdit::placeholder {
-                    color: #6c7086;
-                }
-                QPushButton {
-                    background-color: #40e0d0;
-                    color: #0a1929;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 10px 24px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #2dd4bf;
-                }
-                QPushButton:pressed {
-                    background-color: #00d4aa;
-                }
-                QCheckBox {
-                    color: #e0e6ed;
-                    spacing: 10px;
-                }
-                QCheckBox::indicator {
-                    width: 18px;
-                    height: 18px;
-                    border: 2px solid #2a6a7a;
-                    border-radius: 4px;
-                    background-color: #0d2137;
-                }
-                QCheckBox::indicator:checked {
-                    background-color: #40e0d0;
-                    border-color: #40e0d0;
-                }
-            """)
+        """Apply login screen styles."""
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0a1929;
+                color: #e0e6ed;
+            }
+            QWidget#loginContainer, QWidget#signupContainer {
+                background-color: #122a3a;
+                border: 1px solid #1a4a5a;
+                border-radius: 12px;
+            }
+            QLineEdit {
+                background-color: #0d2137;
+                border: 2px solid #1a4a5a;
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 13px;
+                color: #e0e6ed;
+            }
+            QLineEdit:focus {
+                border-color: #40e0d0;
+                background-color: #122a3a;
+            }
+            QLineEdit::placeholder {
+                color: #6c7086;
+            }
+            QPushButton {
+                background-color: #40e0d0;
+                color: #0a1929;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 24px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2dd4bf;
+            }
+            QPushButton:pressed {
+                background-color: #00d4aa;
+            }
+            QCheckBox {
+                color: #e0e6ed;
+                spacing: 10px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #2a6a7a;
+                border-radius: 4px;
+                background-color: #0d2137;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #40e0d0;
+                border-color: #40e0d0;
+            }
+        """)
 
     def _switch_to_form(self, form_name: str):
         """Switch between login and signup forms."""
