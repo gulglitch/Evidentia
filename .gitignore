@@ -23,3 +23,13 @@ htmlcov/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Database files (generated from schema.sql)
+*.db
+*.sqlite
+*.sqlite3
+
+# Personal notes and documentation (except api-docs.md)
+*.md
+!docs/api-docs.md
+!README.md
