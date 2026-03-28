@@ -19,6 +19,7 @@ from .cases_dashboard import CasesDashboard
 from .case_management import CaseManagement
 from .evidence_upload import EvidenceUpload
 from .metadata_table import MetadataTable
+from .timeline_view import TimelineView
 from .new_case_dialog import NewCaseDialog
 from backend.app.database import Database
 
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self.case_management = CaseManagement()
         self.evidence_upload = None  # Created when needed
         self.metadata_table = None  # Created when needed
+        self.timeline_view = None  # Created when needed
         
         # Add screens to stack
         self.stacked_widget.addWidget(self.splash_screen)
@@ -216,7 +218,7 @@ class MainWindow(QMainWindow):
         """Show the metadata table screen."""
         if self.metadata_table is None:
             self.metadata_table = MetadataTable(self.current_case_id)
-            self.metadata_table.back_requested.connect(self._show_evidence_upload)
+            self.metadata_table.back_requested.connect(self._show_cases_dashboard)
             self.stacked_widget.addWidget(self.metadata_table)
         else:
             self.metadata_table.set_case_id(self.current_case_id)
@@ -227,6 +229,22 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Viewing metadata for: {case['name']}")
         
         self.stacked_widget.setCurrentWidget(self.metadata_table)
+    
+    def _show_timeline_view(self):
+        """Show the timeline view screen."""
+        if self.timeline_view is None:
+            self.timeline_view = TimelineView(self.current_case_id)
+            self.timeline_view.back_requested.connect(self._show_cases_dashboard)
+            self.stacked_widget.addWidget(self.timeline_view)
+        else:
+            self.timeline_view.set_case_id(self.current_case_id)
+        
+        # Update status bar
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Timeline view for: {case['name']}")
+        
+        self.stacked_widget.setCurrentWidget(self.timeline_view)
     
     def _handle_case_created(self, case_id: int):
         """Handle new case creation."""
