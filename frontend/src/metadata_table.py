@@ -20,6 +20,7 @@ class MetadataTable(QWidget):
     """Metadata table screen showing all evidence files."""
     
     back_requested = Signal()
+    timeline_requested = Signal()
     
     def __init__(self, case_id: int = None):
         super().__init__()
@@ -80,6 +81,15 @@ class MetadataTable(QWidget):
         self.count_label.setFont(QFont("Arial", 12))
         self.count_label.setStyleSheet("color: #8899aa;")
         header_layout.addWidget(self.count_label)
+        
+        header_layout.addSpacing(20)
+        
+        # Timeline button
+        timeline_btn = QPushButton("📊 View Timeline")
+        timeline_btn.setFont(QFont("Arial", 12))
+        timeline_btn.setFixedSize(150, 35)
+        timeline_btn.clicked.connect(self.timeline_requested.emit)
+        header_layout.addWidget(timeline_btn)
         
         main_layout.addLayout(header_layout)
         
