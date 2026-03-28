@@ -219,6 +219,7 @@ class MainWindow(QMainWindow):
         if self.metadata_table is None:
             self.metadata_table = MetadataTable(self.current_case_id)
             self.metadata_table.back_requested.connect(self._show_cases_dashboard)
+            self.metadata_table.timeline_requested.connect(self._show_timeline_view)
             self.stacked_widget.addWidget(self.metadata_table)
         else:
             self.metadata_table.set_case_id(self.current_case_id)
@@ -233,8 +234,9 @@ class MainWindow(QMainWindow):
     def _show_timeline_view(self):
         """Show the timeline view screen."""
         if self.timeline_view is None:
+            from .timeline_view import TimelineView
             self.timeline_view = TimelineView(self.current_case_id)
-            self.timeline_view.back_requested.connect(self._show_cases_dashboard)
+            self.timeline_view.back_requested.connect(self._show_metadata_table)
             self.stacked_widget.addWidget(self.timeline_view)
         else:
             self.timeline_view.set_case_id(self.current_case_id)
