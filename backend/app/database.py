@@ -131,6 +131,42 @@ class Database:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Milestones table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id INTEGER NOT NULL,
+                    milestone_name TEXT NOT NULL,
+                    milestone_date TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (case_id) REFERENCES cases(id)
+                )
+            ''')
+            
+            # Search history table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id INTEGER NOT NULL,
+                    search_query TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (case_id) REFERENCES cases(id)
+                )
+            ''')
+            
+            # Search presets table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS search_presets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id INTEGER NOT NULL,
+                    preset_name TEXT NOT NULL,
+                    filters_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (case_id) REFERENCES cases(id)
+                )
+            ''')
     
     # ──────────────────────────────────────────────
     # User operations
@@ -492,3 +528,172 @@ class Database:
                 return True
         except Exception:
             return False
+    
+    # ──────────────────────────────────────────────
+    # Milestone operations (US-04)
+    # ──────────────────────────────────────────────
+    
+    def create_milestone(self, case_id: int, milestone_name: str, 
+                        milestone_date: str, description: str = "") -> int:
+        """
+        Create a new milestone for a case.
+        
+        Args:
+            case_id: Case ID
+            milestone_name: Name of the milestone
+            milestone_date: Date of milestone (ISO format)
+            description: Optional description
+            
+        Returns:
+            Milestone ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO milestones (case_id, milestone_name, milestone_date, description) VALUES (?, ?, ?, ?)",
+                (case_id, milestone_name, milestone_date, description)
+            )
+            return cursor.lastrowid
+    
+    def get_milestones(self, case_id: int) -> List[Dict[str, Any]]:
+        """Get all milestones for a case."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM milestones WHERE case_id = ? ORDER BY milestone_date",
+                (case_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def delete_milestone(self, milestone_id: int):
+        """Delete a milestone."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM milestones WHERE id = ?", (milestone_id,))
+    
+    # ──────────────────────────────────────────────
+    # Status tracking operations (US-05)
+    # ──────────────────────────────────────────────
+    
+    def bulk_update_status(self, evidence_ids: List[int], status: str):
+        """
+        Update status for multiple evidence files.
+        
+        Args:
+            evidence_ids: List of evidence IDs
+            status: New status value
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ','.join('?' * len(evidence_ids))
+            cursor.execute(
+                f"UPDATE evidence SET status = ? WHERE id IN ({placeholders})",
+                [status] + evidence_ids
+            )
+    
+    def update_evidence_notes(self, evidence_id: int, notes: str):
+        """Update notes for an evidence file."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE evidence SET notes = ? WHERE id = ?",
+                (notes, evidence_id)
+            )
+    
+    def get_evidence_notes(self, evidence_id: int) -> Optional[str]:
+        """Get notes for an evidence file."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT notes FROM evidence WHERE id = ?",
+                (evidence_id,)
+            )
+            row = cursor.fetchone()
+            return row['notes'] if row else None
+    
+    def get_status_statistics(self, case_id: int) -> Dict[str, int]:
+        """
+        Get status statistics for a case.
+        
+        Returns:
+            Dictionary with counts for each status
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT status, COUNT(*) as count 
+                FROM evidence 
+                WHERE case_id = ? 
+                GROUP BY status
+            ''', (case_id,))
+            
+            stats = {'Pending': 0, 'Analyzed': 0, 'Flagged': 0}
+            for row in cursor.fetchall():
+                stats[row['status']] = row['count']
+            
+            return stats
+    
+    def get_evidence_by_status(self, case_id: int, status: str) -> List[Dict[str, Any]]:
+        """Get all evidence files with a specific status."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM evidence WHERE case_id = ? AND status = ? ORDER BY modified_time",
+                (case_id, status)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    
+    # ──────────────────────────────────────────────
+    # Search operations (US-07)
+    # ──────────────────────────────────────────────
+    
+    def add_search_history(self, case_id: int, search_query: str):
+        """Add a search query to history."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO search_history (case_id, search_query) VALUES (?, ?)",
+                (case_id, search_query)
+            )
+    
+    def get_search_history(self, case_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent search history for a case."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM search_history WHERE case_id = ? ORDER BY timestamp DESC LIMIT ?",
+                (case_id, limit)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def clear_search_history(self, case_id: int):
+        """Clear search history for a case."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM search_history WHERE case_id = ?", (case_id,))
+    
+    def save_search_preset(self, case_id: int, preset_name: str, filters_json: str) -> int:
+        """Save a search preset."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO search_presets (case_id, preset_name, filters_json) VALUES (?, ?, ?)",
+                (case_id, preset_name, filters_json)
+            )
+            return cursor.lastrowid
+    
+    def get_search_presets(self, case_id: int) -> List[Dict[str, Any]]:
+        """Get all search presets for a case."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM search_presets WHERE case_id = ? ORDER BY created_at DESC",
+                (case_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def delete_search_preset(self, preset_id: int):
+        """Delete a search preset."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM search_presets WHERE id = ?", (preset_id,))

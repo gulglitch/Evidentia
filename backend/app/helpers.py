@@ -187,3 +187,73 @@ def get_relative_time(dt: datetime) -> str:
         return f"{days} day{'s' if days != 1 else ''} ago"
     else:
         return dt.strftime('%Y-%m-%d')
+
+
+# ──────────────────────────────────────────────
+# Status and Risk Level Validation (US-05, US-06)
+# ──────────────────────────────────────────────
+
+VALID_STATUSES = ['Pending', 'Analyzed', 'Flagged']
+VALID_RISK_LEVELS = ['Low', 'Medium', 'High']
+
+
+def validate_status(status: str) -> bool:
+    """
+    Validate status value.
+    
+    Args:
+        status: Status string to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return status in VALID_STATUSES
+
+
+def validate_risk_level(risk_level: str) -> bool:
+    """
+    Validate risk level value.
+    
+    Args:
+        risk_level: Risk level string to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    return risk_level in VALID_RISK_LEVELS
+
+
+def get_status_color(status: str) -> str:
+    """
+    Get color code for status badge.
+    
+    Args:
+        status: Status string
+        
+    Returns:
+        Hex color code
+    """
+    colors = {
+        'Pending': '#f59e0b',  # Yellow
+        'Analyzed': '#10b981',  # Green
+        'Flagged': '#ef4444',   # Red
+    }
+    return colors.get(status, '#6b7280')  # Gray default
+
+
+def get_risk_color(risk_level: str) -> str:
+    """
+    Get color code for risk level badge.
+    
+    Args:
+        risk_level: Risk level string
+        
+    Returns:
+        Hex color code
+    """
+    colors = {
+        'Low': '#10b981',     # Green
+        'Medium': '#f59e0b',  # Yellow
+        'High': '#ef4444',    # Red
+    }
+    return colors.get(risk_level, '#6b7280')  # Gray default
