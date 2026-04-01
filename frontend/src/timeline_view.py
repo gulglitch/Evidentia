@@ -332,13 +332,26 @@ class TimelineView(QWidget):
             self.scene.addItem(marker)
             self.markers.append(marker)
             
-            # Add tooltip
+            # Format date for tooltip
+            date_formatted = self._format_date_detailed(date_str)
+            
+            # Add enhanced tooltip
             marker.setToolTip(
-                f"{evidence.get('file_name', 'Unknown')}\n"
-                f"Date: {self._format_date(date_str)}\n"
+                f"File: {evidence.get('file_name', 'Unknown')}\n"
+                f"Date: {date_formatted}\n"
                 f"Size: {self._format_size(evidence.get('file_size', 0))}\n"
-                f"Type: {evidence.get('file_extension', 'Unknown')}"
+                f"Type: {evidence.get('file_extension', 'Unknown')}\n"
+                f"Status: {evidence.get('status', 'Pending')}"
             )
+            
+            # Add small date label below marker (only for sparse timelines)
+            if len(evidence_list) <= 20:  # Only show labels if not too crowded
+                date_label = self.scene.addText(evidence_date.strftime('%m/%d'))
+                date_label.setDefaultTextColor(QColor("#6b7280"))
+                date_label.setFont(QFont("Arial", 8))
+                label_width = date_label.boundingRect().width()
+                date_label.setPos(x_pos - label_width / 2, timeline_y + 35)
+                date_label.setOpacity(0.7)
         
         # Add date labels
         self._add_date_labels(start_date, end_date, margin, timeline_width, timeline_y)
@@ -350,18 +363,82 @@ class TimelineView(QWidget):
         self.scene.setSceneRect(0, 0, timeline_width, 400)
     
     def _add_date_labels(self, start_date, end_date, margin, timeline_width, timeline_y):
-        """Add date labels to timeline."""
-        # Start date
-        start_text = self.scene.addText(start_date.strftime('%Y-%m-%d'))
-        start_text.setDefaultTextColor(QColor("#8899aa"))
-        start_text.setFont(QFont("Arial", 10))
-        start_text.setPos(margin - 40, timeline_y + 15)
+        """Add date labels to timeline with intermediate dates."""
+        from datetime import timedelta
         
-        # End date
-        end_text = self.scene.addText(end_date.strftime('%Y-%m-%d'))
-        end_text.setDefaultTextColor(QColor("#8899aa"))
-        end_text.setFont(QFont("Arial", 10))
-        end_text.setPos(timeline_width - margin - 40, timeline_y + 15)
+        # Calculate time span
+        time_span = (end_date - start_date).days
+        
+        # Determine number of labels based on span
+        if time_span <= 7:
+            num_labels = time_span + 1  # Show every day
+        elif time_span <= 30:
+            num_labels = 8  # Show ~weekly
+        elif time_span <= 90:
+            num_labels = 6  # Show ~bi-weekly
+        elif time_span <= 365:
+            num_labels = 8  # Show ~monthly
+        else:
+            num_labels = 10  # Show ~quarterly
+        
+        # Ensure at least 2 labels (start and end)
+        num_labels = max(2, min(num_labels, 12))
+        
+        # Add date labels at intervals
+        for i in range(num_labels):
+            # Calculate position
+            ratio = i / (num_labels - 1) if num_labels > 1 else 0
+            x_pos = margin + (ratio * (timeline_width - 2 * margin))
+            
+            # Calculate date
+            if time_span > 0:
+                days_offset = int(time_span * ratio)
+                current_date = start_date + timedelta(days=days_offset)
+            else:
+                current_date = start_date
+            
+            # Format date based on span
+            if time_span <= 30:
+                date_str = current_date.strftime('%b %d')  # "Jan 15"
+            elif time_span <= 365:
+                date_str = current_date.strftime('%b %d')  # "Jan 15"
+            else:
+                date_str = current_date.strftime('%Y-%m')  # "2026-01"
+            
+            # Add text label
+            text = self.scene.addText(date_str)
+            text.setDefaultTextColor(QColor("#8899aa"))
+            text.setFont(QFont("Arial", 10))
+            
+            # Center text under position
+            text_width = text.boundingRect().width()
+            text.setPos(x_pos - text_width / 2, timeline_y + 15)
+            
+            # Add tick mark
+            tick = QGraphicsLineItem(x_pos, timeline_y - 5, x_pos, timeline_y + 5)
+            tick.setPen(QPen(QColor("#40e0d0"), 2))
+            self.scene.addItem(tick)
+        
+        # Add year labels at top if span > 1 year
+        if time_span > 365:
+            start_year = start_date.year
+            end_year = end_date.year
+            
+            for year in range(start_year, end_year + 1):
+                # Find position for this year
+                year_start = datetime(year, 1, 1)
+                if year_start < start_date:
+                    year_start = start_date
+                
+                days_from_start = (year_start - start_date).days
+                ratio = days_from_start / time_span if time_span > 0 else 0
+                x_pos = margin + (ratio * (timeline_width - 2 * margin))
+                
+                # Add year label
+                year_text = self.scene.addText(str(year))
+                year_text.setDefaultTextColor(QColor("#00d4aa"))
+                year_text.setFont(QFont("Arial", 12, QFont.Bold))
+                year_text.setPos(x_pos - 20, timeline_y - 60)
     
     def _add_milestones(self, start_date, end_date, time_span, margin, timeline_width, timeline_y):
         """Add milestone markers to timeline."""
@@ -449,6 +526,13 @@ class TimelineView(QWidget):
         """Format date string."""
         dt = self._parse_date(date_str)
         return dt.strftime('%Y-%m-%d %H:%M') if dt else 'Unknown'
+    
+    def _format_date_detailed(self, date_str: str) -> str:
+        """Format date string with more detail."""
+        dt = self._parse_date(date_str)
+        if dt:
+            return dt.strftime('%B %d, %Y at %H:%M:%S')  # "January 15, 2026 at 14:30:00"
+        return 'Unknown'
     
     def _format_size(self, size_bytes: int) -> str:
         """Format file size."""
