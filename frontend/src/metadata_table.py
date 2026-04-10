@@ -151,9 +151,9 @@ class MetadataTable(QWidget):
         header_layout.addSpacing(20)
         
         # Timeline button
-        timeline_btn = QPushButton("📊 View Timeline")
+        timeline_btn = QPushButton("View Timeline")
         timeline_btn.setFont(QFont("Arial", 12))
-        timeline_btn.setFixedSize(150, 35)
+        timeline_btn.setFixedSize(140, 35)
         timeline_btn.clicked.connect(self.timeline_requested.emit)
         header_layout.addWidget(timeline_btn)
         
