@@ -1,0 +1,66 @@
+DIGITAL FORENSIC ANALYSIS REPORT
+Report ID: FOR-2026-001
+Date: February 12, 2026 03:30 PM
+Analyst: Dr. Michael Torres, CISSP, GCFA
+
+[This is a text representation of a PDF document]
+
+EXECUTIVE SUMMARY:
+Comprehensive forensic analysis of TechCorp data breach incident confirms insider threat with external collaboration. Evidence recovered from multiple sources establishes clear chain of events and criminal intent.
+
+DEVICES ANALYZED:
+1. Workstation: TECHCORP-WS-347 (Martinez's computer)
+2. USB Device: Kingston 64GB (Serial: USB-7734-2026)
+3. Mobile Phone: iPhone 12 (IMEI: [REDACTED])
+4. Server Logs: DB-PROD-01
+
+KEY FINDINGS:
+
+1. WORKSTATION ANALYSIS:
+   - Browser history shows research on data exfiltration techniques
+   - Deleted files recovered showing database schemas
+   - Encrypted communication app installed (Signal)
+   - VPN software configured for Eastern European server
+   - Timeline: Activity dates back to December 2025
+
+2. USB DEVICE ANALYSIS:
+   - Contains 5,247 customer records (CSV format)
+   - Database export dated January 9, 2026 10:52 PM
+   - Matches timeframe of unauthorized access
+   - File metadata confirms source: DB-PROD-01
+
+3. MOBILE PHONE ANALYSIS:
+   - Encrypted messages with unknown contact
+   - Bitcoin wallet app with $55,000 in transactions
+   - Photos of TechCorp security procedures
+   - GPS data places phone at TechCorp on January 9, 10:30 PM
+
+4. SERVER LOG ANALYSIS:
+   - Confirms unauthorized access from IP 203.45.67.89
+   - Data exfiltration: 2 tables, 5,247 records
+   - Security alert triggered after 23 minutes
+   - Attempted log deletion (unsuccessful)
+
+TIMELINE RECONSTRUCTION:
+Dec 2025: Initial planning and research
+Jan 5-8: Financial transactions (payment received)
+Jan 8: Badge "stolen" (reported to cover tracks)
+Jan 9: Breach executed (10:35 PM - 11:15 PM)
+Jan 10: Investigation begins
+
+CONCLUSIONS:
+Evidence overwhelmingly supports charges of:
+- Computer Fraud and Abuse Act violations
+- Theft of Trade Secrets
+- Wire Fraud
+- Conspiracy
+
+EVIDENCE INTEGRITY:
+All evidence collected following proper chain of custody procedures.
+Hash values documented for all digital evidence.
+Forensic images created using industry-standard tools.
+
+Analyst Signature: Dr. Michael Torres
+Date: February 12, 2026
+Evidence Tag: REPORT-001
+Classification: Confidential

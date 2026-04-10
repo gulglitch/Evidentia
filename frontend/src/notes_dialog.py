@@ -1,90 +1,91 @@
 """
 Notes Dialog
-Dialog for adding/editing notes for flagged evidence
+Dialog for adding/editing notes for evidence files
 """
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QDialogButtonBox
+    QTextEdit, QFrame
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-
-from backend.app.database import Database
 
 
 class NotesDialog(QDialog):
     """Dialog for editing evidence notes."""
     
-    notes_saved = Signal(int, str)  # evidence_id, notes
-    
     def __init__(self, evidence_id: int, current_notes: str = "", parent=None):
         super().__init__(parent)
         self.evidence_id = evidence_id
-        self.database = Database()
-        self.setWindowTitle("Evidence Notes")
-        self.setMinimumSize(500, 400)
+        self.current_notes = current_notes
         self._setup_ui()
         self._apply_styles()
-        
-        # Load existing notes
-        if current_notes:
-            self.notes_text.setPlainText(current_notes)
-            self._update_char_count()
     
     def _setup_ui(self):
         """Setup the dialog UI."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        self.setWindowTitle("Evidence Notes")
+        self.setMinimumSize(500, 400)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
         
         # Title
-        title = QLabel("Add Notes for Flagged Evidence")
+        title = QLabel(f"Notes for Evidence #{self.evidence_id}")
         title.setFont(QFont("Arial", 16, QFont.Bold))
         title.setStyleSheet("color: #00d4aa;")
-        layout.addWidget(title)
+        main_layout.addWidget(title)
         
         # Instructions
-        instructions = QLabel("Add notes to document why this evidence is flagged:")
+        instructions = QLabel("Add notes to document important findings, observations, or flags:")
         instructions.setFont(QFont("Arial", 11))
         instructions.setStyleSheet("color: #8899aa;")
-        layout.addWidget(instructions)
+        instructions.setWordWrap(True)
+        main_layout.addWidget(instructions)
         
-        # Text area
-        self.notes_text = QTextEdit()
-        self.notes_text.setPlaceholderText("Enter your notes here...")
-        self.notes_text.setFont(QFont("Arial", 12))
-        self.notes_text.textChanged.connect(self._update_char_count)
-        layout.addWidget(self.notes_text)
+        # Notes text area
+        self.notes_edit = QTextEdit()
+        self.notes_edit.setPlaceholderText(
+            "Enter your notes here...\n\n"
+            "Examples:\n"
+            "- Suspicious file activity detected\n"
+            "- Contains sensitive information\n"
+            "- Requires further investigation\n"
+            "- Related to case #XYZ"
+        )
+        self.notes_edit.setPlainText(self.current_notes)
+        self.notes_edit.setFont(QFont("Arial", 11))
+        main_layout.addWidget(self.notes_edit)
         
-        # Character counter
-        self.char_count_label = QLabel("0 / 500 characters")
+        # Character count
+        self.char_count_label = QLabel(f"Characters: {len(self.current_notes)}/500")
         self.char_count_label.setFont(QFont("Arial", 10))
         self.char_count_label.setStyleSheet("color: #8899aa;")
-        self.char_count_label.setAlignment(Qt.AlignRight)
-        layout.addWidget(self.char_count_label)
+        self.notes_edit.textChanged.connect(self._update_char_count)
+        main_layout.addWidget(self.char_count_label)
         
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setFixedSize(100, 35)
+        cancel_btn.setFixedSize(100, 40)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
         
-        self.save_btn = QPushButton("Save Notes")
-        self.save_btn.setFixedSize(120, 35)
-        self.save_btn.clicked.connect(self._save_notes)
-        button_layout.addWidget(self.save_btn)
+        save_btn = QPushButton("Save Notes")
+        save_btn.setFixedSize(120, 40)
+        save_btn.clicked.connect(self.accept)
+        button_layout.addWidget(save_btn)
         
-        layout.addLayout(button_layout)
+        main_layout.addLayout(button_layout)
     
     def _apply_styles(self):
         """Apply dialog styles."""
         self.setStyleSheet("""
             QDialog {
                 background-color: #0a1929;
+                color: #e0e6ed;
             }
             QLabel {
                 color: #e0e6ed;
@@ -107,6 +108,7 @@ class NotesDialog(QDialog):
                 border-radius: 6px;
                 padding: 8px 16px;
                 font-weight: bold;
+                font-size: 12px;
             }
             QPushButton:hover {
                 background-color: #2dd4bf;
@@ -115,35 +117,16 @@ class NotesDialog(QDialog):
     
     def _update_char_count(self):
         """Update character count label."""
-        text = self.notes_text.toPlainText()
-        char_count = len(text)
-        self.char_count_label.setText(f"{char_count} / 500 characters")
+        text = self.notes_edit.toPlainText()
+        count = len(text)
+        self.char_count_label.setText(f"Characters: {count}/500")
         
-        # Change color if over limit
-        if char_count > 500:
-            self.char_count_label.setStyleSheet("color: #ef4444;")  # Red
-            self.save_btn.setEnabled(False)
+        if count > 500:
+            self.char_count_label.setStyleSheet("color: #ef4444;")
         else:
             self.char_count_label.setStyleSheet("color: #8899aa;")
-            self.save_btn.setEnabled(True)
-    
-    def _save_notes(self):
-        """Save notes to database."""
-        notes = self.notes_text.toPlainText().strip()
-        
-        # Validate length
-        if len(notes) > 500:
-            return
-        
-        # Save to database
-        self.database.update_evidence_notes(self.evidence_id, notes)
-        
-        # Emit signal
-        self.notes_saved.emit(self.evidence_id, notes)
-        
-        # Close dialog
-        self.accept()
     
     def get_notes(self) -> str:
-        """Get the notes text."""
-        return self.notes_text.toPlainText().strip()
+        """Get the notes text (limited to 500 characters)."""
+        text = self.notes_edit.toPlainText()
+        return text[:500]  # Enforce 500 character limit

@@ -1,0 +1,43 @@
+EMAIL THREAD ANALYSIS
+Extracted: January 12, 2026 10:15 AM
+Source: TechCorp Email Server
+
+=== EMAIL 1 ===
+From: john.martinez@techcorp.com
+To: unknown.recipient@protonmail.com
+Date: January 8, 2026 6:45 PM
+Subject: Access Information
+
+"Here are the credentials you requested. 
+Username: db_admin
+Password: [REDACTED]
+VPN Access: Available after 10 PM
+Remember to clear logs."
+
+=== EMAIL 2 ===
+From: unknown.recipient@protonmail.com
+To: john.martinez@techcorp.com
+Date: January 9, 2026 8:30 PM
+Subject: RE: Access Information
+
+"Confirmed. Will access tonight. 
+Payment ready as discussed.
+Bitcoin wallet: [REDACTED]"
+
+=== EMAIL 3 ===
+From: john.martinez@techcorp.com
+To: unknown.recipient@protonmail.com
+Date: January 9, 2026 11:15 PM
+Subject: RE: Access Information
+
+"Something went wrong. Security alert triggered.
+Abort mission. Delete everything."
+
+ANALYSIS NOTES:
+- Emails suggest insider threat
+- John Martinez appears to be facilitating unauthorized access
+- Financial motivation indicated (Bitcoin payment)
+- Coordination with external party confirmed
+
+Evidence Tag: EMAIL-001
+Status: Critical Evidence

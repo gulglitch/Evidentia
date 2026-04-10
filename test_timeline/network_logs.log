@@ -1,0 +1,60 @@
+NETWORK TRAFFIC ANALYSIS LOG
+Analysis Period: January 9-10, 2026
+Network: TechCorp Corporate LAN
+Extracted: February 15, 2026 09:45 AM
+
+[TIMESTAMP] [SOURCE_IP] [DEST_IP] [PROTOCOL] [BYTES] [FLAGS]
+
+=== SUSPICIOUS OUTBOUND TRAFFIC ===
+
+2026-01-09 22:48:15 | 10.0.50.147 | 203.45.67.89 | TCP | 1,247 | SYN
+2026-01-09 22:48:16 | 10.0.50.147 | 203.45.67.89 | TCP | 2,891 | ACK
+2026-01-09 22:49:22 | 10.0.50.147 | 203.45.67.89 | TCP | 15,447 | PSH
+2026-01-09 22:51:35 | 10.0.50.147 | 203.45.67.89 | TCP | 245,891 | PSH
+2026-01-09 22:52:18 | 10.0.50.147 | 203.45.67.89 | TCP | 387,224 | PSH
+2026-01-09 22:54:49 | 10.0.50.147 | 203.45.67.89 | TCP | 1,247,883 | PSH
+2026-01-09 23:12:10 | 10.0.50.147 | 203.45.67.89 | TCP | 891 | FIN
+
+=== TRAFFIC ANALYSIS ===
+
+Source IP: 10.0.50.147 (Martinez Workstation)
+Destination IP: 203.45.67.89 (External - Eastern Europe)
+Total Data Transferred: 1.9 MB outbound
+Duration: 23 minutes 55 seconds
+Protocol: TCP (Encrypted)
+
+PACKET INSPECTION:
+- SSL/TLS encryption detected
+- Certificate: Self-signed (suspicious)
+- Port: 8443 (non-standard HTTPS)
+- Pattern: Large data upload
+- No corresponding inbound traffic (one-way transfer)
+
+GEOLOCATION DATA:
+Destination IP: 203.45.67.89
+Country: Romania
+City: Bucharest
+ISP: Anonymous VPN Service
+Known for: Cybercrime activity
+
+CORRELATION WITH OTHER EVIDENCE:
+- Timing matches database access logs
+- Data volume consistent with 5,247 customer records
+- Source IP matches Martinez's workstation
+- Destination matches VPN service used by external party
+
+NETWORK SECURITY ALERTS:
+[23:12:09] ALERT: Unusual outbound data volume
+[23:12:09] ALERT: Connection to known VPN service
+[23:12:10] ACTION: Connection terminated by firewall
+[23:12:15] ALERT: Reconnection attempt blocked
+
+EVIDENCE OF:
+- Data exfiltration to external party
+- Use of encryption to hide activity
+- Connection to known cybercrime infrastructure
+- Automated security response (too late)
+
+Evidence Tag: LOG-002
+Analysis Tool: Wireshark, Zeek
+Status: Verified

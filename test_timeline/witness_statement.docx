@@ -1,0 +1,99 @@
+WITNESS STATEMENT
+Case ID: INV-2026-001
+Date: February 20, 2026 02:00 PM
+
+[This is a text representation of a Word document]
+
+WITNESS INFORMATION:
+Name: Rebecca Thompson
+Position: Senior IT Security Analyst
+Department: Information Security
+Employee ID: 7821
+Years at TechCorp: 5 years
+
+STATEMENT:
+
+I, Rebecca Thompson, provide the following statement regarding the security incident that occurred on January 9, 2026.
+
+On the evening of January 9th, I was working late finishing a security audit report. At approximately 11:10 PM, I received an automated alert on my phone from our Security Information and Event Management (SIEM) system.
+
+The alert indicated unusual database activity on DB-PROD-01, our primary financial database server. Specifically:
+- Unauthorized access from an external IP address
+- Large volume of data queries
+- Database export operations
+- Activity occurring outside normal business hours
+
+I immediately logged into the security console from home and observed the following:
+- Active session from IP 203.45.67.89 (external)
+- User account: db_admin (administrative privileges)
+- Multiple SELECT queries on customer_data table
+- Two EXPORT operations in progress
+
+I recognized this as a potential data breach and took immediate action:
+1. Terminated the active database connection (11:12 PM)
+2. Blocked the external IP address at the firewall
+3. Disabled the db_admin account
+4. Called my supervisor, Director James Wilson
+5. Initiated incident response procedures
+
+Within 15 minutes, our incident response team was activated. We preserved all logs and began forensic analysis.
+
+ADDITIONAL OBSERVATIONS:
+
+The next morning (January 10th), I reviewed security camera footage and noticed something concerning. At 10:35 PM on January 9th, someone entered the server room using badge #4521, which belongs to John Martinez from the IT Infrastructure team.
+
+I know John professionally. We've worked together on several projects. I was surprised to see him in the building that late, as he typically works 9-5 and rarely stays late.
+
+The person in the footage was wearing a dark jacket and baseball cap, which seemed unusual for John. However, the badge access system clearly showed his credentials were used.
+
+I also noticed that John had been acting strangely in the weeks before the incident:
+- More secretive about his work
+- Defensive when asked about projects
+- Spending time in the server room (unusual for his role)
+- Asking questions about our security monitoring systems
+
+At the time, I didn't think much of it, but in retrospect, these behaviors seem suspicious.
+
+TECHNICAL DETAILS:
+
+Based on my analysis of the logs:
+- The attacker had legitimate credentials (not a hack)
+- They knew exactly what data to target
+- They attempted to cover their tracks by deleting logs
+- Our security systems caught the activity within 23 minutes
+- Approximately 5,247 customer records were accessed
+- Data was transmitted to an external server before we could stop it
+
+IMPACT ASSESSMENT:
+
+The compromised data included:
+- Customer names and addresses
+- Email addresses and phone numbers
+- Account numbers
+- Transaction history
+- Social Security numbers (encrypted, but still concerning)
+
+This represents a serious data breach with potential legal and financial consequences for TechCorp.
+
+RECOMMENDATIONS:
+
+1. Immediate password reset for all administrative accounts
+2. Review and revoke access for all IT personnel
+3. Implement two-factor authentication on all systems
+4. Enhanced monitoring of database access
+5. Regular security awareness training
+6. Prosecution of responsible parties
+
+I am willing to testify in any legal proceedings related to this incident.
+
+DECLARATION:
+
+I declare under penalty of perjury that the foregoing is true and correct to the best of my knowledge.
+
+Signature: Rebecca Thompson
+Date: February 20, 2026
+Witness: Detective Sarah Chen
+
+Evidence Tag: STATEMENT-001
+Status: Sworn Statement
+Classification: Confidential

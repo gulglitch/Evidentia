@@ -1,0 +1,35 @@
+SERVER ACCESS LOG ANALYSIS
+Log Period: January 9, 2026 10:00 PM - January 10, 2026 02:00 AM
+Server: DB-PROD-01 (Financial Database)
+Extracted: January 15, 2026 08:00 AM
+
+[TIMESTAMP] [USER] [ACTION] [IP ADDRESS] [STATUS]
+
+2026-01-09 22:47:23 | db_admin | LOGIN_ATTEMPT | 203.45.67.89 | FAILED
+2026-01-09 22:47:45 | db_admin | LOGIN_ATTEMPT | 203.45.67.89 | FAILED
+2026-01-09 22:48:12 | db_admin | LOGIN_SUCCESS | 203.45.67.89 | SUCCESS
+2026-01-09 22:49:05 | db_admin | QUERY_EXECUTE | 203.45.67.89 | SUCCESS
+2026-01-09 22:49:08 | db_admin | QUERY_EXECUTE | 203.45.67.89 | SUCCESS
+2026-01-09 22:51:33 | db_admin | TABLE_EXPORT | 203.45.67.89 | SUCCESS
+2026-01-09 22:52:15 | db_admin | TABLE_EXPORT | 203.45.67.89 | SUCCESS
+2026-01-09 22:54:47 | db_admin | DATA_DOWNLOAD | 203.45.67.89 | SUCCESS
+2026-01-09 23:12:09 | SYSTEM | SECURITY_ALERT | INTERNAL | TRIGGERED
+2026-01-09 23:12:15 | db_admin | CONNECTION_LOST | 203.45.67.89 | TERMINATED
+2026-01-09 23:15:22 | db_admin | LOGIN_ATTEMPT | 203.45.67.89 | BLOCKED
+
+ANALYSIS:
+- Unauthorized access from external IP (203.45.67.89)
+- Location: Eastern Europe (VPN suspected)
+- 5,247 customer records accessed
+- 2 database tables exported
+- Security alert triggered after 23 minutes
+- Connection terminated by security system
+
+EVIDENCE OF:
+- Unauthorized database access
+- Data exfiltration attempt
+- Use of compromised credentials
+- Attempted cover-up (connection from VPN)
+
+Evidence Tag: LOG-001
+Priority: CRITICAL

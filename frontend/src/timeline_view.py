@@ -16,14 +16,17 @@ from typing import List, Dict, Any, Optional
 
 from backend.app.database import Database
 from backend.app.timeline_generator import TimelineGenerator
+from frontend.src.milestone_dialog import MilestoneDialog
+from frontend.src.evidence_details_dialog import EvidenceDetailsDialog
 
 
 class TimelineMarker(QGraphicsEllipseItem):
     """Custom graphics item for evidence markers on timeline."""
     
-    def __init__(self, evidence: Dict[str, Any], x: float, y: float, radius: float = 8):
+    def __init__(self, evidence: Dict[str, Any], x: float, y: float, radius: float = 8, parent_view=None):
         super().__init__(-radius, -radius, radius * 2, radius * 2)
         self.evidence = evidence
+        self.parent_view = parent_view
         self.setPos(x, y)
         
         # Set color based on file type
@@ -53,13 +56,21 @@ class TimelineMarker(QGraphicsEllipseItem):
     
     def hoverEnterEvent(self, event):
         """Handle hover enter - make marker larger."""
-        self.setScale(1.3)
+        self.setScale(1.5)
+        self.setZValue(100)  # Bring to front
         super().hoverEnterEvent(event)
     
     def hoverLeaveEvent(self, event):
         """Handle hover leave - restore size."""
         self.setScale(1.0)
+        self.setZValue(0)
         super().hoverLeaveEvent(event)
+    
+    def mousePressEvent(self, event):
+        """Handle mouse click - show evidence details."""
+        if event.button() == Qt.LeftButton and self.parent_view:
+            self.parent_view._show_evidence_details(self.evidence)
+        super().mousePressEvent(event)
 
 
 class TimelineView(QWidget):
@@ -85,6 +96,117 @@ class TimelineView(QWidget):
         self.case_id = case_id
         self.load_timeline()
     
+    def _add_case_progression_bar(self):
+        """Add case progression stages bar."""
+        progression_frame = QFrame()
+        progression_frame.setFrameShape(QFrame.StyledPanel)
+        progression_frame.setStyleSheet("""
+            QFrame {
+                background-color: #0d2137;
+                border: 2px solid #1a4a5a;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        
+        progression_layout = QVBoxLayout(progression_frame)
+        progression_layout.setSpacing(10)
+        
+        # Title
+        prog_title = QLabel("Case Progression")
+        prog_title.setFont(QFont("Arial", 14, QFont.Bold))
+        prog_title.setStyleSheet("color: #00d4aa;")
+        progression_layout.addWidget(prog_title)
+        
+        # Stages layout
+        stages_layout = QHBoxLayout()
+        stages_layout.setSpacing(0)
+        
+        # Define stages
+        stages = [
+            ("Case Created", "created"),
+            ("Evidence Collected", "evidence"),
+            ("Analysis In Progress", "analysis"),
+            ("Review", "review"),
+            ("Closed", "closed")
+        ]
+        
+        # Get current case status
+        current_status = "evidence"  # Default
+        if self.case_id:
+            case = self.database.get_case(self.case_id)
+            if case:
+                status = case.get('status', 'Active').lower()
+                if status == 'active':
+                    current_status = "analysis"
+                elif status == 'closed':
+                    current_status = "closed"
+        
+        # Determine which stages are complete
+        stage_order = ["created", "evidence", "analysis", "review", "closed"]
+        current_index = stage_order.index(current_status) if current_status in stage_order else 1
+        
+        for i, (stage_name, stage_id) in enumerate(stages):
+            # Stage container
+            stage_widget = QWidget()
+            stage_layout = QVBoxLayout(stage_widget)
+            stage_layout.setContentsMargins(5, 5, 5, 5)
+            stage_layout.setSpacing(5)
+            
+            # Determine stage state
+            is_complete = i < current_index
+            is_current = i == current_index
+            is_future = i > current_index
+            
+            # Stage icon/marker
+            if is_complete:
+                icon = QLabel("✓")
+                icon.setStyleSheet("color: #10b981; font-size: 24px; font-weight: bold;")
+            elif is_current:
+                icon = QLabel("●")
+                icon.setStyleSheet("color: #00d4aa; font-size: 24px;")
+            else:
+                icon = QLabel("○")
+                icon.setStyleSheet("color: #6b7280; font-size: 24px;")
+            
+            icon.setAlignment(Qt.AlignCenter)
+            stage_layout.addWidget(icon)
+            
+            # Stage label
+            label = QLabel(stage_name)
+            label.setFont(QFont("Arial", 9))
+            label.setWordWrap(True)
+            label.setAlignment(Qt.AlignCenter)
+            
+            if is_complete:
+                label.setStyleSheet("color: #10b981;")
+            elif is_current:
+                label.setStyleSheet("color: #00d4aa; font-weight: bold;")
+            else:
+                label.setStyleSheet("color: #6b7280;")
+            
+            stage_layout.addWidget(label)
+            
+            stages_layout.addWidget(stage_widget)
+            
+            # Add connector line (except after last stage)
+            if i < len(stages) - 1:
+                line = QLabel("─────")
+                line.setFont(QFont("Arial", 12))
+                if i < current_index:
+                    line.setStyleSheet("color: #10b981;")
+                elif i == current_index:
+                    line.setStyleSheet("color: #00d4aa;")
+                else:
+                    line.setStyleSheet("color: #6b7280;")
+                line.setAlignment(Qt.AlignCenter)
+                stages_layout.addWidget(line)
+        
+        progression_layout.addLayout(stages_layout)
+        
+        # Add to main layout
+        self.layout().insertWidget(1, progression_frame)
+    
     def _setup_ui(self):
         """Setup the timeline UI."""
         main_layout = QVBoxLayout(self)
@@ -104,7 +226,7 @@ class TimelineView(QWidget):
         header_layout.addStretch()
         
         # Title
-        self.title_label = QLabel("Evidence Timeline")
+        self.title_label = QLabel("Case Timeline & Evidence")
         self.title_label.setFont(QFont("Arial", 24, QFont.Bold))
         self.title_label.setStyleSheet("color: #00d4aa;")
         header_layout.addWidget(self.title_label)
@@ -118,6 +240,9 @@ class TimelineView(QWidget):
         header_layout.addWidget(self.count_label)
         
         main_layout.addLayout(header_layout)
+        
+        # Case progression timeline
+        self._add_case_progression_bar()
         
         # Filter controls
         filter_layout = QHBoxLayout()
@@ -172,6 +297,14 @@ class TimelineView(QWidget):
         reset_btn.clicked.connect(self._reset_filters)
         filter_layout.addWidget(reset_btn)
         
+        filter_layout.addSpacing(20)
+        
+        # Manage milestones button
+        milestone_btn = QPushButton("📍 Manage Milestones")
+        milestone_btn.setFixedSize(180, 35)
+        milestone_btn.clicked.connect(self._open_milestone_dialog)
+        filter_layout.addWidget(milestone_btn)
+        
         filter_layout.addStretch()
         
         main_layout.addLayout(filter_layout)
@@ -183,8 +316,43 @@ class TimelineView(QWidget):
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.view.setMinimumHeight(400)
+        self.view.setDragMode(QGraphicsView.ScrollHandDrag)  # Enable panning
         
         main_layout.addWidget(self.view)
+        
+        # Zoom controls
+        zoom_layout = QHBoxLayout()
+        zoom_layout.setSpacing(10)
+        
+        zoom_label = QLabel("Zoom:")
+        zoom_label.setFont(QFont("Arial", 11))
+        zoom_layout.addWidget(zoom_label)
+        
+        zoom_out_btn = QPushButton("−")
+        zoom_out_btn.setFixedSize(35, 35)
+        zoom_out_btn.clicked.connect(self._zoom_out)
+        zoom_layout.addWidget(zoom_out_btn)
+        
+        zoom_reset_btn = QPushButton("Reset")
+        zoom_reset_btn.setFixedSize(60, 35)
+        zoom_reset_btn.clicked.connect(self._zoom_reset)
+        zoom_layout.addWidget(zoom_reset_btn)
+        
+        zoom_in_btn = QPushButton("+")
+        zoom_in_btn.setFixedSize(35, 35)
+        zoom_in_btn.clicked.connect(self._zoom_in)
+        zoom_layout.addWidget(zoom_in_btn)
+        
+        zoom_layout.addSpacing(20)
+        
+        fit_btn = QPushButton("Fit to View")
+        fit_btn.setFixedSize(100, 35)
+        fit_btn.clicked.connect(self._fit_to_view)
+        zoom_layout.addWidget(fit_btn)
+        
+        zoom_layout.addStretch()
+        
+        main_layout.addLayout(zoom_layout)
         
         # Legend
         legend_layout = QHBoxLayout()
@@ -212,7 +380,25 @@ class TimelineView(QWidget):
             text_label.setFont(QFont("Arial", 10))
             legend_layout.addWidget(text_label)
         
+        legend_layout.addSpacing(30)
+        
+        # Milestone indicator
+        milestone_box = QLabel("◆")
+        milestone_box.setStyleSheet("color: #f59e0b; font-size: 16px;")
+        legend_layout.addWidget(milestone_box)
+        
+        milestone_label = QLabel("Milestones")
+        milestone_label.setFont(QFont("Arial", 10))
+        legend_layout.addWidget(milestone_label)
+        
         legend_layout.addStretch()
+        
+        # Timeline stats
+        self.stats_label = QLabel("")
+        self.stats_label.setFont(QFont("Arial", 10))
+        self.stats_label.setStyleSheet("color: #8899aa;")
+        legend_layout.addWidget(self.stats_label)
+        
         main_layout.addLayout(legend_layout)
     
     def _apply_styles(self):
@@ -327,8 +513,11 @@ class TimelineView(QWidget):
             x_ratio = time_offset / time_span
             x_pos = margin + (x_ratio * (timeline_width - 2 * margin))
             
+            # Add slight vertical offset to avoid complete overlap
+            y_offset = (hash(evidence.get('id', 0)) % 5) * 3 - 6
+            
             # Create marker
-            marker = TimelineMarker(evidence, x_pos, timeline_y)
+            marker = TimelineMarker(evidence, x_pos, timeline_y + y_offset, parent_view=self)
             self.scene.addItem(marker)
             self.markers.append(marker)
             
@@ -348,6 +537,9 @@ class TimelineView(QWidget):
         
         # Set scene rect
         self.scene.setSceneRect(0, 0, timeline_width, 400)
+        
+        # Update stats
+        self._update_stats()
     
     def _add_date_labels(self, start_date, end_date, margin, timeline_width, timeline_y):
         """Add date labels to timeline."""
@@ -376,21 +568,40 @@ class TimelineView(QWidget):
             if not milestone_date:
                 continue
             
+            # Skip if outside date range
+            if milestone_date < start_date or milestone_date > end_date:
+                continue
+            
             # Calculate x position
             time_offset = (milestone_date - start_date).total_seconds()
             x_ratio = time_offset / time_span
             x_pos = margin + (x_ratio * (timeline_width - 2 * margin))
             
             # Draw vertical line
-            line = QGraphicsLineItem(x_pos, timeline_y - 50, x_pos, timeline_y + 50)
-            line.setPen(QPen(QColor("#f59e0b"), 2, Qt.DashLine))
+            line = QGraphicsLineItem(x_pos, timeline_y - 60, x_pos, timeline_y + 60)
+            line.setPen(QPen(QColor("#f59e0b"), 3, Qt.DashLine))
+            line.setZValue(-1)  # Behind markers
             self.scene.addItem(line)
             
-            # Add label
+            # Add milestone marker (star shape approximation with circle)
+            milestone_marker = QGraphicsEllipseItem(x_pos - 10, timeline_y - 10, 20, 20)
+            milestone_marker.setBrush(QBrush(QColor("#f59e0b")))
+            milestone_marker.setPen(QPen(QColor("#ffffff"), 2))
+            milestone_marker.setZValue(50)
+            milestone_marker.setToolTip(
+                f"Milestone: {milestone.get('milestone_name', 'Unknown')}\n"
+                f"Date: {milestone_date.strftime('%Y-%m-%d')}\n"
+                f"{milestone.get('description', '')}"
+            )
+            self.scene.addItem(milestone_marker)
+            
+            # Add label above
             label = self.scene.addText(milestone.get('milestone_name', 'Milestone'))
             label.setDefaultTextColor(QColor("#f59e0b"))
             label.setFont(QFont("Arial", 10, QFont.Bold))
-            label.setPos(x_pos - 30, timeline_y - 80)
+            label_width = label.boundingRect().width()
+            label.setPos(x_pos - label_width / 2, timeline_y - 90)
+            label.setZValue(50)
     
     def _apply_date_filter(self):
         """Apply date range filter."""
@@ -422,6 +633,64 @@ class TimelineView(QWidget):
     def _on_date_field_changed(self):
         """Handle date field change."""
         self.load_timeline()
+    
+    def _open_milestone_dialog(self):
+        """Open milestone management dialog."""
+        if not self.case_id:
+            return
+        
+        dialog = MilestoneDialog(self.case_id, self)
+        dialog.milestone_added.connect(self.load_timeline)
+        dialog.exec()
+    
+    def _show_evidence_details(self, evidence: Dict[str, Any]):
+        """Show evidence details dialog."""
+        dialog = EvidenceDetailsDialog(evidence, self)
+        dialog.exec()
+    
+    def _zoom_in(self):
+        """Zoom in the timeline view."""
+        self.view.scale(1.2, 1.0)
+    
+    def _zoom_out(self):
+        """Zoom out the timeline view."""
+        self.view.scale(0.8, 1.0)
+    
+    def _zoom_reset(self):
+        """Reset zoom to default."""
+        self.view.resetTransform()
+    
+    def _fit_to_view(self):
+        """Fit timeline to view."""
+        if self.scene.items():
+            self.view.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)
+    
+    def _update_stats(self):
+        """Update timeline statistics display."""
+        if not self.timeline_data:
+            return
+        
+        evidence_count = len(self.timeline_data.get('evidence', []))
+        milestone_count = len(self.timeline_data.get('milestones', []))
+        date_range = self.timeline_data.get('date_range', (None, None))
+        
+        if date_range[0] and date_range[1]:
+            start = self._parse_date(date_range[0])
+            end = self._parse_date(date_range[1])
+            if start and end:
+                days = (end - start).days
+                self.stats_label.setText(
+                    f"Evidence: {evidence_count} | Milestones: {milestone_count} | "
+                    f"Time Span: {days} days"
+                )
+            else:
+                self.stats_label.setText(
+                    f"Evidence: {evidence_count} | Milestones: {milestone_count}"
+                )
+        else:
+            self.stats_label.setText(
+                f"Evidence: {evidence_count} | Milestones: {milestone_count}"
+            )
     
     def _parse_date(self, date_str: str) -> Optional[datetime]:
         """Parse date string to datetime."""

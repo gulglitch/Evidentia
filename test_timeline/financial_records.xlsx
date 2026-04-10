@@ -1,0 +1,36 @@
+FINANCIAL TRANSACTION RECORDS
+Extracted: January 13, 2026 04:45 PM
+Source: TechCorp Financial Database
+
+[This is a text representation of an Excel spreadsheet]
+
+SUSPICIOUS TRANSACTIONS IDENTIFIED:
+
+Date        | Amount    | Account      | Description           | Flag
+------------|-----------|--------------|----------------------|------
+Jan 5, 2026 | $15,000   | Martinez, J. | Wire Transfer Out    | HIGH
+Jan 6, 2026 | $8,500    | Martinez, J. | Cryptocurrency Buy   | HIGH
+Jan 7, 2026 | $12,000   | Martinez, J. | Wire Transfer Out    | HIGH
+Jan 8, 2026 | $20,000   | Martinez, J. | Offshore Transfer    | HIGH
+
+TOTAL SUSPICIOUS ACTIVITY: $55,500
+
+ACCOUNT DETAILS:
+Account Holder: John Martinez
+Employee ID: 4521
+Department: IT Infrastructure
+Annual Salary: $85,000
+Account Age: 3 years
+
+RED FLAGS:
+- Transactions exceed 6 months of salary
+- Unusual pattern (4 large transactions in 4 days)
+- Cryptocurrency involvement
+- Offshore transfers
+- Timing coincides with security breach
+
+RECOMMENDATION:
+Freeze account and initiate financial fraud investigation
+
+Evidence Tag: FINANCIAL-001
+Classification: Confidential

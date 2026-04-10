@@ -1,0 +1,46 @@
+WITNESS INTERVIEW TRANSCRIPT
+Date: February 10, 2026 11:00 AM
+Location: TechCorp Conference Room B
+Interviewer: Detective Sarah Chen
+Witness: John Martinez (Suspect)
+Legal Counsel: Present
+
+INTERVIEW BEGINS:
+
+Q: Mr. Martinez, can you explain your whereabouts on January 9, 2026, between 10:00 PM and midnight?
+
+A: I was at home. I left work at 5:30 PM that day.
+
+Q: We have security footage showing someone using your badge to enter the building at 10:35 PM. Can you explain that?
+
+A: [Long pause] My badge was stolen. I reported it on January 8th.
+
+Q: Yes, we have that report. But the person in the footage knew exactly where to go. They accessed the server room and your workstation. How would a random thief know that?
+
+A: I don't know. Maybe they had help from someone else.
+
+Q: We also found emails from your account coordinating this access. How do you explain that?
+
+A: [Consulting with lawyer] My email was hacked. Someone must have compromised my account.
+
+Q: Mr. Martinez, we've also discovered unusual financial transactions from your bank account. Large sums transferred in the days before the breach. Care to comment?
+
+A: [No response]
+
+Q: We have evidence of cryptocurrency purchases, offshore transfers, totaling over $55,000. Where did this money come from?
+
+A: [Consulting with lawyer] I'm invoking my right to remain silent.
+
+INTERVIEW NOTES:
+- Subject became increasingly nervous during questioning
+- Multiple inconsistencies in timeline
+- Financial evidence appears damaging
+- Subject invoked right to silence when confronted with financial records
+- Legal counsel advised against further responses
+
+RECOMMENDATION:
+Sufficient evidence for arrest warrant
+Charges: Computer fraud, unauthorized access, data theft, conspiracy
+
+Evidence Tag: INTERVIEW-001
+Status: Confidential
