@@ -3,7 +3,7 @@ Timeline Generator Module
 Generates timeline data for visualization of evidence chronologically
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 from backend.app.database import Database
 
@@ -110,6 +110,21 @@ class TimelineGenerator:
         # Parse filter dates
         from_dt = self._parse_date(date_from) if date_from else None
         to_dt = self._parse_date(date_to) if date_to else None
+
+        # Normalize timezone-aware datetimes to naive values for safe comparison.
+        if from_dt and from_dt.tzinfo is not None:
+            from_dt = from_dt.replace(tzinfo=None)
+        if to_dt and to_dt.tzinfo is not None:
+            to_dt = to_dt.replace(tzinfo=None)
+
+        # If the end date is date-only (YYYY-MM-DD), treat it as inclusive for that full day.
+        to_dt_exclusive = None
+        if to_dt:
+            has_explicit_time = ('T' in date_to) or (' ' in date_to)
+            if has_explicit_time:
+                to_dt_exclusive = to_dt
+            else:
+                to_dt_exclusive = to_dt + timedelta(days=1)
         
         filtered = []
         for evidence in evidence_list:
@@ -122,10 +137,13 @@ class TimelineGenerator:
                 if not dt:
                     continue
                 
+                if dt.tzinfo is not None:
+                    dt = dt.replace(tzinfo=None)
+
                 # Check if within range
                 if from_dt and dt < from_dt:
                     continue
-                if to_dt and dt > to_dt:
+                if to_dt_exclusive and dt >= to_dt_exclusive:
                     continue
                 
                 filtered.append(evidence)

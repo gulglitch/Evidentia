@@ -492,15 +492,26 @@ class CaseManagement(QWidget):
         custom_type_btn.setFixedSize(220, 40)
         custom_type_btn.setStyleSheet("""
             QPushButton {
-                background-color: #1a4a5a;
-                color: #00d4aa;
-                border: 2px dashed #00d4aa;
+                background-color: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #12324a,
+                    stop:1 #1b4f62
+                );
+                color: #7ff6ea;
+                border: 2px solid #2dd4bf;
                 border-radius: 8px;
+                padding: 0 14px;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #122a3a;
-                border-color: #40e0d0;
-                color: #40e0d0;
+                background-color: #1a4558;
+                border-color: #7ff6ea;
+                color: #c9fffa;
+            }
+            QPushButton:pressed {
+                background-color: #0f2e40;
+                border-color: #26c4b0;
+                color: #9dfcf2;
             }
         """)
         custom_type_btn.clicked.connect(self._show_custom_type_dialog)

@@ -117,16 +117,7 @@ class MilestoneDialog(QDialog):
         
         main_layout.addLayout(content_layout)
         
-        # Bottom buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        close_btn = QPushButton("Close")
-        close_btn.setFixedSize(120, 40)
-        close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(close_btn)
-        
-        main_layout.addLayout(button_layout)
+        # Bottom action row intentionally removed; dialog can be closed via window controls.
     
     def _apply_styles(self):
         """Apply dialog styles."""

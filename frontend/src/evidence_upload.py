@@ -16,6 +16,7 @@ from datetime import datetime
 
 from backend.app.database import Database
 from backend.app.file_scanner import FileScanner
+from backend.app.risk_assessment import RiskAssessment
 
 
 class FileAnalysisWorker(QThread):
@@ -74,11 +75,17 @@ class FileAnalysisWorker(QThread):
                         'metadata': metadata.get('hash', '')
                     }
                     
+                    # Calculate risk level automatically
+                    risk_level = RiskAssessment.calculate_risk_level(file_data)
+                    
                     # Add to database
                     evidence_id = self.database.add_evidence(
                         case_id=self.case_id,
                         file_data=file_data
                     )
+                    
+                    # Update risk level in database
+                    self.database.update_evidence_risk(evidence_id, risk_level)
                     
                     # Emit file info for live display
                     file_info = {

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
+import os
 
 from .splash_screen import SplashScreen
 from .login_screen import LoginScreen
@@ -20,7 +21,9 @@ from .case_management import CaseManagement
 from .evidence_upload import EvidenceUpload
 from .metadata_table import MetadataTable
 from .timeline_view import TimelineView
+from .analytics_dashboard import AnalyticsDashboard
 from .new_case_dialog import NewCaseDialog
+from .case_home import CaseHome
 from backend.app.database import Database
 
 
@@ -51,6 +54,7 @@ class MainWindow(QMainWindow):
         """Setup the main UI structure."""
         # Central widget with stacked layout for different screens
         self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setObjectName("mainStack")
         self.setCentralWidget(self.stacked_widget)
         
         # Create screens
@@ -59,9 +63,11 @@ class MainWindow(QMainWindow):
         self.profile_setup = ProfileSetupScreen()
         self.cases_dashboard = CasesDashboard()
         self.case_management = CaseManagement()
+        self.case_home = None  # Created when needed
         self.evidence_upload = None  # Created when needed
         self.metadata_table = None  # Created when needed
         self.timeline_view = None  # Created when needed
+        self.analytics_dashboard = None  # Created when needed
         
         # Add screens to stack
         self.stacked_widget.addWidget(self.splash_screen)
@@ -113,13 +119,37 @@ class MainWindow(QMainWindow):
     
     def _apply_styles(self):
         """Apply application styles."""
+        self._set_window_background(None)
+
+    def _set_window_background(self, image_name: str = None):
+        """Apply main-window background with optional image."""
+        stack_bg = "background-color: #0a1929;"
+
+        if image_name:
+            image_path = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "..",
+                    "assets",
+                    "images",
+                    image_name,
+                )
+            )
+            if os.path.exists(image_path):
+                css_path = image_path.replace("\\", "/")
+                stack_bg += (
+                    f"background-image: url('{css_path}');"
+                    "background-position: center;"
+                    "background-repeat: no-repeat;"
+                )
+
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #0a1929;
             }
-            QWidget {
-                background-color: #0a1929;
-                color: #e0e6ed;
+            QStackedWidget#mainStack {
+        """ + stack_bg + """
             }
             QPushButton {
                 background-color: #40e0d0;
@@ -141,10 +171,13 @@ class MainWindow(QMainWindow):
     
     def _show_splash(self):
         """Show the splash screen."""
+        # Splash uses main window background image; splash box stays centered on top.
+        self._set_window_background("bg_photo_1.png")
         self.stacked_widget.setCurrentWidget(self.splash_screen)
     
     def _show_login(self):
         """Show the login screen and attempt auto-login."""
+        self._set_window_background(None)
         # Try auto-login first
         if not self.login_screen.try_auto_login():
             # If auto-login fails, show the login screen
@@ -166,6 +199,7 @@ class MainWindow(QMainWindow):
             user = self.database.get_user(user_id)
             full_name = user['full_name'] if user else username
             self.profile_setup.set_user(user_id, full_name)
+            self._set_window_background(None)
             self.stacked_widget.setCurrentWidget(self.profile_setup)
     
     def _handle_profile_completed(self):
@@ -175,6 +209,7 @@ class MainWindow(QMainWindow):
     
     def _show_cases_dashboard(self):
         """Show the cases dashboard screen."""
+        self._set_window_background(None)
         self.cases_dashboard.load_cases()
         self.stacked_widget.setCurrentWidget(self.cases_dashboard)
     
@@ -188,14 +223,45 @@ class MainWindow(QMainWindow):
         case = self.database.get_case(case_id)
         if case:
             self.statusbar.showMessage(f"Opened case: {case['name']}")
-        # Navigate to evidence upload or metadata table for this case
-        self._show_metadata_table()
+        # Navigate to case workspace hub.
+        self._show_case_home()
+
+    def _show_case_home(self):
+        """Show the case workspace hub for the selected case."""
+        investigator_name = self._get_signed_in_display_name()
+
+        if self.case_home is None:
+            self.case_home = CaseHome(self.current_case_id)
+            self.case_home.back_to_cases_requested.connect(self._show_cases_dashboard)
+            self.case_home.upload_requested.connect(self._show_evidence_upload)
+            self.case_home.evidence_requested.connect(self._show_metadata_table)
+            self.case_home.timeline_requested.connect(self._show_timeline_view)
+            self.case_home.analytics_requested.connect(self._show_analytics_dashboard)
+            self.stacked_widget.addWidget(self.case_home)
+            self.case_home.set_investigator_name(investigator_name)
+        else:
+            self.case_home.set_case_id(self.current_case_id)
+            self.case_home.set_investigator_name(investigator_name)
+
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Case workspace: {case['name']}")
+
+        self.stacked_widget.setCurrentWidget(self.case_home)
+
+    def _get_signed_in_display_name(self) -> str:
+        """Return display name for the current signed-in user."""
+        if self.current_user_id:
+            user = self.database.get_user(self.current_user_id)
+            if user and user.get('full_name'):
+                return user['full_name']
+        return self.current_user or "Assigned Investigator"
     
     def _show_evidence_upload(self):
         """Show the evidence upload screen."""
         if self.evidence_upload is None:
             self.evidence_upload = EvidenceUpload(self.current_case_id)
-            self.evidence_upload.back_requested.connect(self._show_case_management)
+            self.evidence_upload.back_requested.connect(self._show_case_home)
             self.evidence_upload.upload_completed.connect(self._handle_upload_completed)
             self.stacked_widget.addWidget(self.evidence_upload)
         else:
@@ -218,8 +284,7 @@ class MainWindow(QMainWindow):
         """Show the metadata table screen."""
         if self.metadata_table is None:
             self.metadata_table = MetadataTable(self.current_case_id)
-            self.metadata_table.back_requested.connect(self._show_cases_dashboard)
-            self.metadata_table.timeline_requested.connect(self._show_timeline_view)
+            self.metadata_table.back_requested.connect(self._show_case_home)
             self.stacked_widget.addWidget(self.metadata_table)
         else:
             self.metadata_table.set_case_id(self.current_case_id)
@@ -236,7 +301,7 @@ class MainWindow(QMainWindow):
         if self.timeline_view is None:
             from .timeline_view import TimelineView
             self.timeline_view = TimelineView(self.current_case_id)
-            self.timeline_view.back_requested.connect(self._show_metadata_table)
+            self.timeline_view.back_requested.connect(self._show_case_home)
             self.stacked_widget.addWidget(self.timeline_view)
         else:
             self.timeline_view.set_case_id(self.current_case_id)
@@ -248,13 +313,29 @@ class MainWindow(QMainWindow):
         
         self.stacked_widget.setCurrentWidget(self.timeline_view)
     
+    def _show_analytics_dashboard(self):
+        """Show the analytics dashboard screen."""
+        if self.analytics_dashboard is None:
+            self.analytics_dashboard = AnalyticsDashboard(self.current_case_id)
+            self.analytics_dashboard.back_requested.connect(self._show_case_home)
+            self.stacked_widget.addWidget(self.analytics_dashboard)
+        else:
+            self.analytics_dashboard.set_case_id(self.current_case_id)
+        
+        # Update status bar
+        case = self.database.get_case(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Analytics for: {case['name']}")
+        
+        self.stacked_widget.setCurrentWidget(self.analytics_dashboard)
+    
     def _handle_case_created(self, case_id: int):
         """Handle new case creation."""
         self.current_case_id = case_id
         self.statusbar.showMessage(f"Case created (ID: {case_id})")
-        
-        # Show evidence upload screen for the new case
-        self._show_evidence_upload()
+
+        # Show case workspace after creation.
+        self._show_case_home()
     
     
     def _logout(self):

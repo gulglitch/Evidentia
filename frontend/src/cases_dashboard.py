@@ -6,14 +6,43 @@ View, filter, and manage all investigation cases
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit,
-    QComboBox, QFrame
+    QComboBox, QFrame, QStyle, QStyleOptionComboBox
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QPainter, QPen
 from datetime import datetime
 from typing import List, Dict, Any
 
 from backend.app.database import Database
+
+
+class ChevronComboBox(QComboBox):
+    """ComboBox with a consistently visible custom chevron icon."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        arrow_rect = self.style().subControlRect(
+            QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, self
+        )
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        chevron_color = QColor("#40e0d0") if self.underMouse() else QColor("#8899aa")
+        pen = QPen(chevron_color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        painter.setPen(pen)
+
+        cx = arrow_rect.center().x()
+        cy = arrow_rect.center().y()
+        half_w = max(4, arrow_rect.width() // 6)
+        half_h = max(3, arrow_rect.height() // 7)
+
+        painter.drawLine(cx - half_w, cy - half_h, cx, cy + half_h)
+        painter.drawLine(cx, cy + half_h, cx + half_w, cy - half_h)
+        painter.end()
 
 
 class CasesDashboard(QWidget):
@@ -81,7 +110,7 @@ class CasesDashboard(QWidget):
         type_label.setStyleSheet("color: #e0e6ed;")
         filter_layout.addWidget(type_label)
         
-        self.type_filter = QComboBox()
+        self.type_filter = ChevronComboBox()
         self.type_filter.addItems([
             "All Types",
             "Cybercrime",
@@ -103,7 +132,7 @@ class CasesDashboard(QWidget):
         status_label.setStyleSheet("color: #e0e6ed;")
         filter_layout.addWidget(status_label)
         
-        self.status_filter = QComboBox()
+        self.status_filter = ChevronComboBox()
         self.status_filter.addItems(["All Status", "Open", "In Progress", "Closed"])
         self.status_filter.setFixedWidth(150)
         self.status_filter.setMinimumHeight(35)
@@ -134,6 +163,7 @@ class CasesDashboard(QWidget):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSortingEnabled(True)
+        self.table.setFocusPolicy(Qt.NoFocus)
         self.table.doubleClicked.connect(self._handle_case_double_click)
         
         # Set column widths
@@ -150,8 +180,46 @@ class CasesDashboard(QWidget):
         self.table.setColumnWidth(3, 120)  # Status
         self.table.setColumnWidth(4, 180)  # Created
         self.table.setColumnWidth(5, 130)  # Evidence Count
+
+        # Ensure left row-number header does not clip single/double-digit numbers.
+        vheader = self.table.verticalHeader()
+        vheader.setVisible(True)
+        vheader.setDefaultAlignment(Qt.AlignCenter)
+        vheader.setFixedWidth(40)
         
         main_layout.addWidget(self.table)
+
+        # Primary case action row
+        action_layout = QHBoxLayout()
+        action_layout.setSpacing(12)
+
+        self.open_case_btn = QPushButton("Open Selected Case")
+        self.open_case_btn.setFont(QFont("Arial", 12, QFont.Bold))
+        self.open_case_btn.setFixedSize(210, 40)
+        self.open_case_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #40e0d0;
+                color: #0a1929;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                text-align: center;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2dd4bf;
+            }
+        """)
+        self.open_case_btn.clicked.connect(self._open_selected_case)
+        action_layout.addWidget(self.open_case_btn)
+
+        open_hint = QLabel("Tip: You can also double-click a row to open it")
+        open_hint.setFont(QFont("Arial", 10))
+        open_hint.setStyleSheet("color: #8899aa;")
+        action_layout.addWidget(open_hint)
+
+        action_layout.addStretch()
+        main_layout.addLayout(action_layout)
         
         # Summary bar
         summary_layout = QHBoxLayout()
@@ -199,10 +267,8 @@ class CasesDashboard(QWidget):
             }
             QComboBox::down-arrow {
                 image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #8899aa;
-                margin-right: 5px;
+                width: 0px;
+                height: 0px;
             }
             QPushButton {
                 background-color: #40e0d0;
@@ -229,10 +295,14 @@ class CasesDashboard(QWidget):
                 background-color: #2a7a8a;
                 color: #ffffff;
             }
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
+            }
             QTableWidget::item:alternate {
                 background-color: #0f1f2f;
             }
-            QHeaderView::section {
+            QHeaderView::section:horizontal {
                 background-color: #122a3a;
                 color: #00d4aa;
                 padding: 12px;
@@ -241,8 +311,16 @@ class CasesDashboard(QWidget):
                 font-weight: bold;
                 font-size: 13px;
             }
-            QHeaderView::section:hover {
+            QHeaderView::section:horizontal:hover {
                 background-color: #1a3a4a;
+            }
+            QHeaderView::section:vertical {
+                background-color: #122a3a;
+                color: #00d4aa;
+                padding: 2px;
+                border: none;
+                border-right: 1px solid #1a4a5a;
+                font-weight: bold;
             }
             QScrollBar:vertical {
                 background-color: #0d2137;
@@ -396,12 +474,18 @@ class CasesDashboard(QWidget):
     
     def _handle_case_double_click(self):
         """Handle double-click on a case row."""
+        self._open_selected_case()
+
+    def _open_selected_case(self):
+        """Open the currently selected case from the table."""
         selected_row = self.table.currentRow()
-        if selected_row >= 0:
-            case_id_item = self.table.item(selected_row, 0)
-            if case_id_item:
-                case_id = int(case_id_item.text())
-                self.case_selected.emit(case_id)
+        if selected_row < 0:
+            return
+
+        case_id_item = self.table.item(selected_row, 0)
+        if case_id_item:
+            case_id = int(case_id_item.text())
+            self.case_selected.emit(case_id)
     
     def _format_date(self, date_str: str) -> str:
         """Format date string."""

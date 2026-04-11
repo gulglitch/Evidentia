@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QPushButton, QCheckBox, QFrame, QStackedWidget, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal, QSettings
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPainter, QPixmap, QColor, QLinearGradient
+import os
 
 from backend.app.database import Database
 
@@ -22,10 +23,43 @@ class LoginScreen(QWidget):
         super().__init__()
         self.database = Database()
         self.settings = QSettings("Evidentia", "EvidentiApp")
+        self.setObjectName("loginScreen")
+        self.bg_pixmap = QPixmap(
+            os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "..",
+                    "assets",
+                    "images",
+                    "bg_photo_2.png",
+                )
+            )
+        )
         self.setWindowTitle("Evidentia - Login")
         self._setup_ui()
         self._apply_styles()
         self._load_remembered_credentials()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if not self.bg_pixmap.isNull():
+            scaled = self.bg_pixmap.scaled(
+                self.size(),
+                Qt.KeepAspectRatioByExpanding,
+                Qt.SmoothTransformation,
+            )
+            x = (self.width() - scaled.width()) // 2
+            y = (self.height() - scaled.height()) // 2
+            painter.drawPixmap(x, y, scaled)
+            overlay = QLinearGradient(0, 0, 0, self.height())
+            overlay.setColorAt(0.0, QColor(7, 20, 33, 125))
+            overlay.setColorAt(0.55, QColor(7, 20, 33, 78))
+            overlay.setColorAt(1.0, QColor(7, 20, 33, 95))
+            painter.fillRect(self.rect(), overlay)
+        else:
+            painter.fillRect(self.rect(), QColor("#0a1929"))
+        super().paintEvent(event)
     
     def _setup_ui(self):
         """Setup the login UI with stacked login/signup forms."""
@@ -50,8 +84,8 @@ class LoginScreen(QWidget):
         container.setObjectName("loginContainer")
         container.setStyleSheet("""
             QWidget#loginContainer {
-                background-color: #122a3a;
-                border: 1px solid #1a4a5a;
+                background-color: rgba(18, 42, 58, 185);
+                border: 1px solid rgba(64, 224, 208, 90);
                 border-radius: 12px;
             }
         """)
@@ -161,8 +195,8 @@ class LoginScreen(QWidget):
         container.setObjectName("signupContainer")
         container.setStyleSheet("""
             QWidget#signupContainer {
-                background-color: #122a3a;
-                border: 1px solid #1a4a5a;
+                background-color: rgba(18, 42, 58, 185);
+                border: 1px solid rgba(64, 224, 208, 90);
                 border-radius: 12px;
             }
         """)
@@ -299,19 +333,21 @@ class LoginScreen(QWidget):
 
     def _apply_styles(self):
         """Apply login screen styles."""
-        self.setStyleSheet("""
-            QWidget {
+        style = """
+            QWidget#loginScreen {
                 background-color: #0a1929;
+            }
+            QWidget {
                 color: #e0e6ed;
             }
             QWidget#loginContainer, QWidget#signupContainer {
-                background-color: #122a3a;
-                border: 1px solid #1a4a5a;
+                background-color: rgba(18, 42, 58, 185);
+                border: 1px solid rgba(64, 224, 208, 90);
                 border-radius: 12px;
             }
             QLineEdit {
-                background-color: #0d2137;
-                border: 2px solid #1a4a5a;
+                background-color: rgba(13, 33, 55, 200);
+                border: 2px solid rgba(26, 74, 90, 190);
                 border-radius: 8px;
                 padding: 10px 14px;
                 font-size: 13px;
@@ -319,7 +355,7 @@ class LoginScreen(QWidget):
             }
             QLineEdit:focus {
                 border-color: #40e0d0;
-                background-color: #122a3a;
+                background-color: rgba(18, 42, 58, 215);
             }
             QLineEdit::placeholder {
                 color: #6c7086;
@@ -354,7 +390,8 @@ class LoginScreen(QWidget):
                 background-color: #40e0d0;
                 border-color: #40e0d0;
             }
-        """)
+        """
+        self.setStyleSheet(style)
 
     def _switch_to_form(self, form_name: str):
         """Switch between login and signup forms."""

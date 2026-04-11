@@ -69,6 +69,8 @@ An interactive version of the app with sorting and mapping.
 6. Risk Level Charts: As a user, I want to see a bar chart of High/Low risk files to know what to check first.
 
 7. Global Search: As a user, I want to search by filename to find evidence quickly.
+
+
 Iteration 3 (Weeks 5-6)
 Reporting & History
 The final product with history logs and PDF exporting.

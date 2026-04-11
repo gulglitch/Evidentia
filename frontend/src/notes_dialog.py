@@ -17,7 +17,7 @@ class NotesDialog(QDialog):
     def __init__(self, evidence_id: int, current_notes: str = "", parent=None):
         super().__init__(parent)
         self.evidence_id = evidence_id
-        self.current_notes = current_notes
+        self.current_notes = current_notes or ""
         self._setup_ui()
         self._apply_styles()
     
@@ -57,8 +57,8 @@ class NotesDialog(QDialog):
         self.notes_edit.setFont(QFont("Arial", 11))
         main_layout.addWidget(self.notes_edit)
         
-        # Character count
-        self.char_count_label = QLabel(f"Characters: {len(self.current_notes)}/500")
+        # Character count (no hard limit, acts like an editable notepad)
+        self.char_count_label = QLabel(f"Characters: {len(self.current_notes)}")
         self.char_count_label.setFont(QFont("Arial", 10))
         self.char_count_label.setStyleSheet("color: #8899aa;")
         self.notes_edit.textChanged.connect(self._update_char_count)
@@ -119,14 +119,9 @@ class NotesDialog(QDialog):
         """Update character count label."""
         text = self.notes_edit.toPlainText()
         count = len(text)
-        self.char_count_label.setText(f"Characters: {count}/500")
-        
-        if count > 500:
-            self.char_count_label.setStyleSheet("color: #ef4444;")
-        else:
-            self.char_count_label.setStyleSheet("color: #8899aa;")
+        self.char_count_label.setText(f"Characters: {count}")
+        self.char_count_label.setStyleSheet("color: #8899aa;")
     
     def get_notes(self) -> str:
-        """Get the notes text (limited to 500 characters)."""
-        text = self.notes_edit.toPlainText()
-        return text[:500]  # Enforce 500 character limit
+        """Get the full notes text."""
+        return self.notes_edit.toPlainText()

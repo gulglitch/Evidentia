@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QGridLayout
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPainter, QPixmap, QColor, QLinearGradient
+import os
 
 from backend.app.database import Database
 
@@ -62,21 +63,21 @@ class RoleCard(QFrame):
         if self._selected:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: rgba(22, 53, 69, 0.9);
-                    border: 2px solid #40e0d0;
+                    background-color: rgba(26, 74, 90, 184);
+                    border: 2px solid rgba(64, 224, 208, 210);
                     border-radius: 12px;
                 }
             """)
         else:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: rgba(18, 42, 58, 0.85);
-                    border: 2px solid #1a4a5a;
+                    background-color: rgba(13, 33, 55, 158);
+                    border: 1px solid rgba(64, 224, 208, 56);
                     border-radius: 12px;
                 }
                 QFrame:hover {
-                    border-color: #2a7a8a;
-                    background-color: rgba(21, 48, 64, 0.9);
+                    border-color: rgba(64, 224, 208, 112);
+                    background-color: rgba(21, 48, 64, 172);
                 }
             """)
     
@@ -133,21 +134,21 @@ class UseCard(QFrame):
         if self._selected:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: rgba(22, 53, 69, 0.9);
-                    border: 2px solid #40e0d0;
+                    background-color: rgba(26, 74, 90, 184);
+                    border: 2px solid rgba(64, 224, 208, 210);
                     border-radius: 10px;
                 }
             """)
         else:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: rgba(18, 42, 58, 0.85);
-                    border: 2px solid #1a4a5a;
+                    background-color: rgba(13, 33, 55, 158);
+                    border: 1px solid rgba(64, 224, 208, 56);
                     border-radius: 10px;
                 }
                 QFrame:hover {
-                    border-color: #2a7a8a;
-                    background-color: rgba(21, 48, 64, 0.9);
+                    border-color: rgba(64, 224, 208, 112);
+                    background-color: rgba(21, 48, 64, 172);
                 }
             """)
     
@@ -172,10 +173,43 @@ class ProfileSetupScreen(QWidget):
         self.user_id = user_id
         self.full_name = full_name
         self.database = Database()
+        self.setObjectName("profileSetupScreen")
+        self.bg_pixmap = QPixmap(
+            os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "..",
+                    "assets",
+                    "images",
+                    "bg_photo_3.png",
+                )
+            )
+        )
         self.selected_role = None
         self.selected_use = None
         self._setup_ui()
         self._apply_styles()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if not self.bg_pixmap.isNull():
+            scaled = self.bg_pixmap.scaled(
+                self.size(),
+                Qt.KeepAspectRatioByExpanding,
+                Qt.SmoothTransformation,
+            )
+            x = (self.width() - scaled.width()) // 2
+            y = (self.height() - scaled.height()) // 2
+            painter.drawPixmap(x, y, scaled)
+            overlay = QLinearGradient(0, 0, 0, self.height())
+            overlay.setColorAt(0.0, QColor(7, 20, 33, 130))
+            overlay.setColorAt(0.52, QColor(7, 20, 33, 88))
+            overlay.setColorAt(1.0, QColor(7, 20, 33, 102))
+            painter.fillRect(self.rect(), overlay)
+        else:
+            painter.fillRect(self.rect(), QColor("#0a1929"))
+        super().paintEvent(event)
     
     def set_user(self, user_id: int, full_name: str):
         """Set the current user info."""
@@ -341,26 +375,29 @@ class ProfileSetupScreen(QWidget):
     
     def _apply_styles(self):
         """Apply screen styles."""
-        self.setStyleSheet("""
-            QWidget {
+        style = """
+            QWidget#profileSetupScreen {
                 background-color: #0a1929;
+            }
+            QWidget {
                 color: #e0e6ed;
             }
             QLineEdit {
-                background-color: #0d2137;
-                border: 2px solid #1a4a5a;
+                background-color: rgba(13, 33, 55, 205);
+                border: 2px solid rgba(26, 74, 90, 190);
                 border-radius: 8px;
                 padding: 8px 14px;
                 color: #e0e6ed;
             }
             QLineEdit:focus {
                 border-color: #40e0d0;
-                background-color: #122a3a;
+                background-color: rgba(18, 42, 58, 220);
             }
             QLineEdit::placeholder {
                 color: #6c7086;
             }
-        """)
+        """
+        self.setStyleSheet(style)
     
     def _on_role_selected(self, role_name: str):
         """Handle role card selection."""

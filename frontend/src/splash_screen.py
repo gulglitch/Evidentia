@@ -17,6 +17,7 @@ class SplashScreen(QWidget):
     
     def __init__(self):
         super().__init__()
+        self.setObjectName("splashScreen")
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         # Don't set fixed size, let it be flexible within the main window
         self._setup_ui()
@@ -35,8 +36,8 @@ class SplashScreen(QWidget):
         container.setFixedSize(500, 350)
         container.setStyleSheet("""
             QWidget {
-                background-color: rgba(18, 42, 58, 0.95);
-                border: 1px solid #1a4a5a;
+                background-color: rgba(18, 42, 58, 199);
+                border: 1px solid rgba(64, 224, 208, 115);
                 border-radius: 12px;
             }
         """)
@@ -81,9 +82,8 @@ class SplashScreen(QWidget):
     def _apply_styles(self):
         """Apply splash screen styles."""
         self.setStyleSheet("""
-            QWidget {
-                background-color: #0a1929;
-                color: #e0e6ed;
+            QWidget#splashScreen {
+                background: transparent;
             }
             QProgressBar {
                 border: 2px solid #1a4a5a;

@@ -5,11 +5,10 @@ Shows detailed information about a selected evidence file
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QFrame, QGridLayout, QMessageBox
+    QFrame, QGridLayout, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QDesktopServices
-from PySide6.QtCore import QUrl
+from PySide6.QtGui import QFont
 from typing import Dict, Any
 from datetime import datetime
 import os
@@ -31,7 +30,8 @@ class EvidenceDetailsDialog(QDialog):
     def _setup_ui(self):
         """Setup the dialog UI."""
         self.setWindowTitle("Evidence Details")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(760, 560)
+        self.resize(780, 620)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(30, 30, 30, 30)
@@ -39,8 +39,9 @@ class EvidenceDetailsDialog(QDialog):
         
         # Title
         title = QLabel(self.evidence.get('file_name', 'Unknown File'))
+        title.setObjectName("detailsTitle")
         title.setFont(QFont("Arial", 18, QFont.Bold))
-        title.setStyleSheet("color: #00d4aa;")
+        title.setStyleSheet("color: #00d4aa; background: transparent; border: none;")
         title.setWordWrap(True)
         main_layout.addWidget(title)
         
@@ -110,74 +111,42 @@ class EvidenceDetailsDialog(QDialog):
         
         main_layout.addWidget(details_frame)
         
-        # Notes section
-        notes_label = QLabel("Notes:")
-        notes_label.setFont(QFont("Arial", 12, QFont.Bold))
-        main_layout.addWidget(notes_label)
-        
-        self.notes_display = QTextEdit()
-        self.notes_display.setReadOnly(True)
-        self.notes_display.setMaximumHeight(120)
-        notes_text = self.evidence.get('notes', 'No notes available.')
-        self.notes_display.setPlainText(notes_text if notes_text else 'No notes available.')
-        main_layout.addWidget(self.notes_display)
-        
-        # Metadata section
-        metadata_label = QLabel("Metadata:")
-        metadata_label.setFont(QFont("Arial", 12, QFont.Bold))
-        main_layout.addWidget(metadata_label)
-        
-        self.metadata_display = QTextEdit()
-        self.metadata_display.setReadOnly(True)
-        self.metadata_display.setMaximumHeight(100)
-        self.metadata_display.setFont(QFont("Courier New", 9))
-        metadata_text = self.evidence.get('metadata', 'No metadata available.')
-        self.metadata_display.setPlainText(metadata_text if metadata_text else 'No metadata available.')
-        main_layout.addWidget(self.metadata_display)
-        
         # Action buttons
         action_layout = QHBoxLayout()
         action_layout.setSpacing(10)
         
         # Open file location button
-        open_location_btn = QPushButton("📁 Open File Location")
+        open_location_btn = QPushButton("Open File Location")
         open_location_btn.setFixedHeight(40)
         open_location_btn.clicked.connect(self._open_file_location)
         action_layout.addWidget(open_location_btn)
         
         # View in table button
-        view_table_btn = QPushButton("📊 View in Table")
+        view_table_btn = QPushButton("View in Table")
         view_table_btn.setFixedHeight(40)
         view_table_btn.clicked.connect(self._view_in_table)
         action_layout.addWidget(view_table_btn)
         
         main_layout.addLayout(action_layout)
-        
-        # Close button
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        close_btn = QPushButton("Close")
-        close_btn.setFixedSize(120, 40)
-        close_btn.clicked.connect(self.accept)
-        button_layout.addWidget(close_btn)
-        
-        main_layout.addLayout(button_layout)
     
     def _add_detail_row(self, layout: QGridLayout, row: int, label_text: str, value):
         """Add a detail row to the grid."""
         label = QLabel(label_text)
+        label.setObjectName("detailKey")
         label.setFont(QFont("Arial", 11, QFont.Bold))
-        label.setStyleSheet("color: #8899aa;")
+        label.setStyleSheet("color: #8ca3b8; background: transparent; border: none;")
         layout.addWidget(label, row, 0, Qt.AlignTop)
         
         if isinstance(value, str):
             value_label = QLabel(value)
+            value_label.setObjectName("detailValue")
             value_label.setFont(QFont("Arial", 11))
             value_label.setWordWrap(True)
             value_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            value_label.setStyleSheet("color: #e6edf5; background: transparent; border: none;")
             layout.addWidget(value_label, row, 1)
         else:
+            value.setStyleSheet(value.styleSheet() + " background: transparent; border: none;")
             layout.addWidget(value, row, 1)
     
     def _format_size(self, size_bytes: int) -> str:
@@ -227,35 +196,33 @@ class EvidenceDetailsDialog(QDialog):
         """Apply dialog styles."""
         self.setStyleSheet("""
             QDialog {
-                background-color: #0a1929;
+                background-color: #081726;
                 color: #e0e6ed;
             }
             QLabel {
                 color: #e0e6ed;
+                background: transparent;
+                border: none;
             }
             QFrame {
                 background-color: #0d2137;
-                border: 2px solid #1a4a5a;
-                border-radius: 8px;
-            }
-            QTextEdit {
-                background-color: #0d2137;
-                border: 2px solid #1a4a5a;
-                border-radius: 6px;
-                padding: 10px;
-                color: #e0e6ed;
+                border: 1px solid #1a5d74;
+                border-radius: 10px;
             }
             QPushButton {
-                background-color: #40e0d0;
+                background-color: #35d9cb;
                 color: #0a1929;
                 border: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 padding: 8px 16px;
                 font-weight: bold;
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #2dd4bf;
+                background-color: #56e6da;
+            }
+            QPushButton:pressed {
+                background-color: #2fc4b6;
             }
         """)
     

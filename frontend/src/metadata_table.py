@@ -6,15 +6,45 @@ Displays a comprehensive table of all evidence files with their metadata
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit,
-    QComboBox, QFrame, QCheckBox, QMessageBox, QMenu
+    QComboBox, QFrame, QCheckBox, QMessageBox, QMenu,
+    QStyle, QStyleOptionComboBox
 )
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QFont, QColor, QCursor
+from PySide6.QtGui import QFont, QColor, QCursor, QPainter, QPen
 from datetime import datetime
 from typing import List, Dict, Any
 
 from backend.app.database import Database
+from backend.app.search_engine import SearchEngine
 from frontend.src.notes_dialog import NotesDialog
+
+
+class ChevronComboBox(QComboBox):
+    """ComboBox with consistently visible custom chevron icon."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        arrow_rect = self.style().subControlRect(
+            QStyle.CC_ComboBox, option, QStyle.SC_ComboBoxArrow, self
+        )
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        chevron_color = QColor("#40e0d0") if self.underMouse() else QColor("#8899aa")
+        painter.setPen(QPen(chevron_color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+        cx = arrow_rect.center().x()
+        cy = arrow_rect.center().y()
+        half_w = max(4, arrow_rect.width() // 6)
+        half_h = max(3, arrow_rect.height() // 7)
+
+        painter.drawLine(cx - half_w, cy - half_h, cx, cy + half_h)
+        painter.drawLine(cx, cy + half_h, cx + half_w, cy - half_h)
+        painter.end()
 
 
 class MetadataTable(QWidget):
@@ -22,16 +52,20 @@ class MetadataTable(QWidget):
     
     back_requested = Signal()
     timeline_requested = Signal()
+    analytics_requested = Signal()
     
     def __init__(self, case_id: int = None):
         super().__init__()
         self.case_id = case_id
         self.database = Database()
+        self.search_engine = SearchEngine()
         self.all_evidence = []
+        self.search_history = []
         self._setup_ui()
         self._apply_styles()
         if case_id:
             self.load_evidence()
+            self._load_search_history()
     
     def set_case_id(self, case_id: int):
         """Set the current case ID and reload evidence."""
@@ -95,11 +129,8 @@ class MetadataTable(QWidget):
         
         controls_layout.addStretch()
         
-        # Status statistics
-        self.stats_widget = QLabel("")
-        self.stats_widget.setFont(QFont("Arial", 11))
-        self.stats_widget.setStyleSheet("color: #8899aa;")
-        controls_layout.addWidget(self.stats_widget)
+        # Status statistics strip removed from UI for a cleaner layout.
+        self.stats_widget = None
         
         main_layout.addWidget(controls_frame)
     
@@ -113,9 +144,9 @@ class MetadataTable(QWidget):
         header_layout = QHBoxLayout()
         
         # Back button
-        back_btn = QPushButton("‹ Back")
+        back_btn = QPushButton("‹ Back to Case")
         back_btn.setFont(QFont("Arial", 12))
-        back_btn.setFixedSize(100, 35)
+        back_btn.setFixedSize(155, 35)
         back_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -148,15 +179,6 @@ class MetadataTable(QWidget):
         self.count_label.setStyleSheet("color: #8899aa;")
         header_layout.addWidget(self.count_label)
         
-        header_layout.addSpacing(20)
-        
-        # Timeline button
-        timeline_btn = QPushButton("View Timeline")
-        timeline_btn.setFont(QFont("Arial", 12))
-        timeline_btn.setFixedSize(140, 35)
-        timeline_btn.clicked.connect(self.timeline_requested.emit)
-        header_layout.addWidget(timeline_btn)
-        
         main_layout.addLayout(header_layout)
         
         # Filter and search bar
@@ -170,11 +192,26 @@ class MetadataTable(QWidget):
         filter_layout.addWidget(search_label)
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by filename...")
-        self.search_input.setFixedWidth(300)
+        self.search_input.setPlaceholderText("Search using advanced operators")
+        self.search_input.setFixedWidth(500)
         self.search_input.setMinimumHeight(35)
-        self.search_input.textChanged.connect(self._apply_filters)
+        self.search_input.textChanged.connect(self._on_search_changed)
+        self.search_input.returnPressed.connect(self._on_search_submitted)
         filter_layout.addWidget(self.search_input)
+        
+        # Search help button
+        help_btn = QPushButton("?")
+        help_btn.setFixedSize(35, 35)
+        help_btn.setToolTip("Search Help:\n"
+                           "• \"exact phrase\" - exact match\n"
+                           "• term1 OR term2 - either term\n"
+                           "• term1 NOT term2 - exclude term2\n"
+                           "• file* - wildcard\n"
+                           "• type:pdf - file type\n"
+                           "• size:>10MB - file size\n"
+                           "• created:2026-01-01..2026-03-01 - date range")
+        help_btn.clicked.connect(self._show_search_help)
+        filter_layout.addWidget(help_btn)
         
         filter_layout.addSpacing(20)
         
@@ -184,10 +221,28 @@ class MetadataTable(QWidget):
         type_label.setStyleSheet("color: #e0e6ed;")
         filter_layout.addWidget(type_label)
         
-        self.type_filter = QComboBox()
+        self.type_filter = ChevronComboBox()
         self.type_filter.addItems(["All Types", "Document", "Image", "Video", "Archive", "Other"])
         self.type_filter.setFixedWidth(150)
         self.type_filter.setMinimumHeight(35)
+        self.type_filter.setStyleSheet("""
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+                border: none;
+                border-left: 0px;
+                border-right: 0px;
+                border-top: 0px;
+                border-bottom: 0px;
+                margin: 0px;
+                padding: 0px;
+            }
+        """)
         self.type_filter.currentTextChanged.connect(self._apply_filters)
         filter_layout.addWidget(self.type_filter)
         
@@ -218,6 +273,13 @@ class MetadataTable(QWidget):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSortingEnabled(True)
+        self.table.setFocusPolicy(Qt.NoFocus)
+
+        vheader = self.table.verticalHeader()
+        vheader.setVisible(True)
+        vheader.setDefaultAlignment(Qt.AlignCenter)
+        vheader.setFixedWidth(46)
+        vheader.setDefaultSectionSize(34)
         
         # Set column widths
         header = self.table.horizontalHeader()
@@ -232,7 +294,7 @@ class MetadataTable(QWidget):
         header.setSectionResizeMode(8, QHeaderView.Fixed)  # Risk
         header.setSectionResizeMode(9, QHeaderView.Fixed)  # Notes
         
-        self.table.setColumnWidth(0, 40)   # Checkbox
+        self.table.setColumnWidth(0, 52)   # Checkbox
         self.table.setColumnWidth(1, 60)   # ID
         self.table.setColumnWidth(3, 100)  # Type
         self.table.setColumnWidth(4, 100)  # Size
@@ -240,7 +302,7 @@ class MetadataTable(QWidget):
         self.table.setColumnWidth(6, 150)  # Modified
         self.table.setColumnWidth(7, 100)  # Status
         self.table.setColumnWidth(8, 80)   # Risk
-        self.table.setColumnWidth(9, 60)   # Notes
+        self.table.setColumnWidth(9, 72)   # Notes
         
         # Connect cell click for status/risk changes
         self.table.cellClicked.connect(self._on_cell_clicked)
@@ -323,6 +385,10 @@ class MetadataTable(QWidget):
                 background-color: #2a7a8a;
                 color: #ffffff;
             }
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
+            }
             QTableWidget::item:alternate {
                 background-color: #0f1f2f;
             }
@@ -337,6 +403,11 @@ class MetadataTable(QWidget):
             }
             QHeaderView::section:hover {
                 background-color: #1a3a4a;
+            }
+            QHeaderView::section:vertical {
+                padding: 2px;
+                border-right: 1px solid #1a4a5a;
+                font-size: 12px;
             }
             QScrollBar:vertical {
                 background-color: #0d2137;
@@ -392,12 +463,13 @@ class MetadataTable(QWidget):
             
             # Checkbox
             checkbox = QCheckBox()
-            checkbox.setStyleSheet("QCheckBox { margin-left: 10px; }")
+            checkbox.setStyleSheet("QCheckBox::indicator { width: 16px; height: 16px; }")
             checkbox_widget = QWidget()
             checkbox_layout = QHBoxLayout(checkbox_widget)
             checkbox_layout.addWidget(checkbox)
             checkbox_layout.setAlignment(Qt.AlignCenter)
             checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            checkbox_layout.setSpacing(0)
             self.table.setCellWidget(row, 0, checkbox_widget)
             
             # ID
@@ -455,13 +527,41 @@ class MetadataTable(QWidget):
             
             # Notes icon
             notes = evidence.get('notes', '')
-            notes_item = QTableWidgetItem("📝" if notes else "➕")
+            notes_text = "📝" if notes else "➕"
+            notes_item = QTableWidgetItem(notes_text)
             notes_item.setTextAlignment(Qt.AlignCenter)
             notes_item.setFont(QFont("Arial", 14))
             notes_item.setToolTip("Click to add/edit notes" if not notes else f"Notes: {notes[:50]}...")
             if notes:
                 notes_item.setForeground(QColor("#40e0d0"))
             self.table.setItem(row, 9, notes_item)
+
+            # Dedicated button improves click reliability on narrow/right-edge column.
+            notes_btn = QPushButton(notes_text)
+            notes_btn.setCursor(Qt.PointingHandCursor)
+            notes_btn.setFlat(True)
+            notes_btn.setFocusPolicy(Qt.NoFocus)
+            notes_btn.setFont(QFont("Arial", 14))
+            notes_btn.setToolTip(notes_item.toolTip())
+            notes_btn.setProperty("evidence_id", evidence.get('id'))
+            notes_btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    color: #40e0d0;
+                    padding: 0px;
+                }
+                QPushButton:hover {
+                    color: #7ef9ef;
+                }
+                QPushButton:pressed {
+                    color: #2dd4bf;
+                }
+            """)
+            notes_btn.clicked.connect(
+                lambda _checked=False, eid=evidence.get('id'): self._on_notes_button_clicked(eid)
+            )
+            self.table.setCellWidget(row, 9, notes_btn)
         
         self.table.setSortingEnabled(True)
         self.count_label.setText(f"{len(evidence_list)} files")
@@ -471,7 +571,7 @@ class MetadataTable(QWidget):
     
     def _apply_filters(self):
         """Apply search, type, and status filters."""
-        search_text = self.search_input.text().lower()
+        search_text = self.search_input.text().strip()
         type_filter = self.type_filter.currentText()
         
         # Get status filter states
@@ -479,13 +579,15 @@ class MetadataTable(QWidget):
         show_analyzed = self.analyzed_check.isChecked()
         show_flagged = self.flagged_check.isChecked()
         
-        filtered_evidence = []
-        for evidence in self.all_evidence:
-            # Check search filter
-            file_name = evidence.get('file_name', '').lower()
-            if search_text and search_text not in file_name:
-                continue
-            
+        # Start with advanced search if query provided
+        if search_text:
+            filtered_evidence = self._apply_advanced_search(search_text)
+        else:
+            filtered_evidence = list(self.all_evidence)
+        
+        # Apply additional filters
+        final_evidence = []
+        for evidence in filtered_evidence:
             # Check type filter
             if type_filter != "All Types":
                 file_type = self._determine_type(evidence.get('file_extension', ''))
@@ -501,10 +603,10 @@ class MetadataTable(QWidget):
             if status == 'Flagged' and not show_flagged:
                 continue
             
-            filtered_evidence.append(evidence)
+            final_evidence.append(evidence)
         
-        self._populate_table(filtered_evidence)
-        self._update_summary(filtered_evidence)
+        self._populate_table(final_evidence)
+        self._update_summary(final_evidence)
     
     def _clear_filters(self):
         """Clear all filters."""
@@ -588,16 +690,20 @@ class MetadataTable(QWidget):
             return date_str if date_str else 'Unknown'
     
     def _on_cell_clicked(self, row: int, column: int):
-        """Handle cell clicks for status, risk, and notes."""
+        """Handle cell clicks for status and risk."""
         # Status column (7)
         if column == 7:
             self._change_status(row)
         # Risk column (8)
         elif column == 8:
             self._change_risk(row)
-        # Notes column (9)
-        elif column == 9:
-            self._edit_notes(row)
+
+    def _on_notes_button_clicked(self, evidence_id: int):
+        """Select row and open notes editor from Notes button click."""
+        row = self._find_row_by_evidence_id(evidence_id)
+        if row >= 0:
+            self.table.selectRow(row)
+        self._edit_notes_for_evidence(evidence_id)
     
     def _change_status(self, row: int):
         """Change status for a single evidence file."""
@@ -729,27 +835,70 @@ class MetadataTable(QWidget):
             return
         
         evidence = id_item.data(Qt.UserRole)
-        evidence_id = evidence.get('id')
-        current_notes = evidence.get('notes', '')
+        self._edit_notes_for_evidence(evidence.get('id'))
+
+    def _edit_notes_for_evidence(self, evidence_id: int):
+        """Edit notes for an evidence file by ID."""
+        if not evidence_id:
+            return
+
+        evidence = self._find_evidence_by_id(evidence_id)
+        current_notes = (evidence.get('notes') or '') if evidence else ''
         
         dialog = NotesDialog(evidence_id, current_notes, self)
         if dialog.exec():
             new_notes = dialog.get_notes()
             try:
                 self.database.update_evidence_notes(evidence_id, new_notes)
-                evidence['notes'] = new_notes
-                
-                # Update notes icon
-                notes_item = self.table.item(row, 9)
-                notes_item.setText("📝" if new_notes else "➕")
-                notes_item.setToolTip("Click to add/edit notes" if not new_notes else f"Notes: {new_notes[:50]}...")
-                if new_notes:
-                    notes_item.setForeground(QColor("#40e0d0"))
-                else:
-                    notes_item.setForeground(QColor("#e0e6ed"))
+                if evidence is not None:
+                    evidence['notes'] = new_notes
+                self._refresh_notes_cells(evidence_id, new_notes)
                 
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to update notes: {str(e)}")
+
+    def _find_evidence_by_id(self, evidence_id: int):
+        """Find evidence dict by ID in the loaded case evidence list."""
+        for evidence in self.all_evidence:
+            if evidence.get('id') == evidence_id:
+                return evidence
+        return None
+
+    def _find_row_by_evidence_id(self, evidence_id: int) -> int:
+        """Find current visible row index for an evidence ID."""
+        for row in range(self.table.rowCount()):
+            id_item = self.table.item(row, 1)
+            if not id_item:
+                continue
+            row_evidence = id_item.data(Qt.UserRole)
+            if row_evidence and row_evidence.get('id') == evidence_id:
+                return row
+        return -1
+
+    def _refresh_notes_cells(self, evidence_id: int, notes: str):
+        """Refresh notes icon/button state for rows matching evidence ID."""
+        notes_text = "📝" if notes else "➕"
+        notes_tooltip = "Click to add/edit notes" if not notes else f"Notes: {notes[:50]}..."
+
+        for row in range(self.table.rowCount()):
+            id_item = self.table.item(row, 1)
+            if not id_item:
+                continue
+
+            row_evidence = id_item.data(Qt.UserRole)
+            if not row_evidence or row_evidence.get('id') != evidence_id:
+                continue
+
+            notes_item = self.table.item(row, 9)
+            if notes_item:
+                notes_item.setText(notes_text)
+                notes_item.setToolTip(notes_tooltip)
+                notes_item.setForeground(QColor("#40e0d0" if notes else "#e0e6ed"))
+
+            notes_btn = self.table.cellWidget(row, 9)
+            if isinstance(notes_btn, QPushButton):
+                notes_btn.setText(notes_text)
+                notes_btn.setToolTip(notes_tooltip)
     
     def _on_bulk_action(self, action_text: str):
         """Handle bulk action selection."""
@@ -832,6 +981,9 @@ class MetadataTable(QWidget):
         """Update status statistics display."""
         if not self.case_id:
             return
+
+        if self.stats_widget is None:
+            return
         
         try:
             stats = self.database.get_status_statistics(self.case_id)
@@ -868,3 +1020,82 @@ class MetadataTable(QWidget):
             'High': '#ef4444',
         }
         return colors.get(risk, '#6b7280')
+    
+    def _on_search_changed(self):
+        """Handle search text changes with debouncing."""
+        # Simple debouncing - apply filters after short delay
+        if hasattr(self, '_search_timer'):
+            self._search_timer.stop()
+        
+        self._search_timer = QTimer()
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self._apply_filters)
+        self._search_timer.start(300)  # 300ms delay
+    
+    def _on_search_submitted(self):
+        """Handle search submission (Enter key)."""
+        query = self.search_input.text().strip()
+        if query and self.case_id:
+            # Add to search history
+            self.database.add_search_history(self.case_id, query)
+            self._load_search_history()
+        self._apply_filters()
+    
+    def _load_search_history(self):
+        """Load search history from database."""
+        if not self.case_id:
+            return
+        
+        history = self.database.get_search_history(self.case_id, limit=10)
+        self.search_history = [h['search_query'] for h in history]
+    
+    def _show_search_help(self):
+        """Show search help dialog."""
+        help_text = """
+<h3>Advanced Search Operators</h3>
+
+<p><b>Exact Match:</b><br>
+Use quotes for exact phrases: <code>"financial report"</code></p>
+
+<p><b>OR Operator:</b><br>
+Find files with either term: <code>report OR document</code></p>
+
+<p><b>NOT Operator:</b><br>
+Exclude terms: <code>report NOT draft</code></p>
+
+<p><b>Wildcard:</b><br>
+Use * for partial matches: <code>report*.pdf</code></p>
+
+<p><b>File Type Filter:</b><br>
+Search by type: <code>type:pdf</code> or <code>type:jpg</code></p>
+
+<p><b>Size Filter:</b><br>
+Filter by size: <code>size:>10MB</code> or <code>size:<5KB</code></p>
+
+<p><b>Date Range:</b><br>
+Filter by date: <code>created:2026-01-01..2026-03-01</code></p>
+
+<p><b>Status Filter:</b><br>
+Filter by status: <code>status:flagged</code></p>
+
+<p><b>Risk Filter:</b><br>
+Filter by risk: <code>risk:high</code></p>
+
+<p><b>Combine Multiple Operators:</b><br>
+<code>type:pdf size:>1MB NOT draft</code></p>
+        """
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Search Help")
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(help_text)
+        msg.setIcon(QMessageBox.Information)
+        msg.exec()
+    
+    def _apply_advanced_search(self, query: str) -> List[Dict[str, Any]]:
+        """Apply advanced search using SearchEngine."""
+        if not query or not query.strip():
+            return self.all_evidence
+        
+        # Use SearchEngine for advanced search
+        return self.search_engine.search_evidence(self.all_evidence, query)

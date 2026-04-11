@@ -33,4 +33,6 @@ Thumbs.db
 *.md
 !docs/
 !docs/**
+docs/ProjectProposal.md
+docs/DEVELOPMENT_PLAN.md
 !README.md
