@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 import os
+from typing import Optional, Dict, Any
 
 from .splash_screen import SplashScreen
 from .login_screen import LoginScreen
@@ -187,6 +188,8 @@ class MainWindow(QMainWindow):
         """Handle successful login."""
         self.current_user = username
         self.current_user_id = user_id
+        self.cases_dashboard.set_current_user(user_id)
+        self.case_management.set_current_user(user_id)
         self.logout_button.setVisible(True)
         self.statusbar.showMessage(f"Welcome, {username}")
         
@@ -219,12 +222,27 @@ class MainWindow(QMainWindow):
     
     def _handle_case_selected(self, case_id: int):
         """Handle case selection from dashboard."""
+        case = self._get_case_for_current_user(case_id)
+        if not case:
+            QMessageBox.warning(
+                self,
+                "Access Denied",
+                "You do not have permission to open this case."
+            )
+            self.statusbar.showMessage("Unable to open selected case")
+            self._show_cases_dashboard()
+            return
+
         self.current_case_id = case_id
-        case = self.database.get_case(case_id)
-        if case:
-            self.statusbar.showMessage(f"Opened case: {case['name']}")
+        self.statusbar.showMessage(f"Opened case: {case['name']}")
         # Navigate to case workspace hub.
         self._show_case_home()
+
+    def _get_case_for_current_user(self, case_id: Optional[int]) -> Optional[Dict[str, Any]]:
+        """Fetch case only if it belongs to the current user."""
+        if case_id is None or self.current_user_id is None:
+            return None
+        return self.database.get_case(case_id, user_id=self.current_user_id)
 
     def _show_case_home(self):
         """Show the case workspace hub for the selected case."""
@@ -243,7 +261,7 @@ class MainWindow(QMainWindow):
             self.case_home.set_case_id(self.current_case_id)
             self.case_home.set_investigator_name(investigator_name)
 
-        case = self.database.get_case(self.current_case_id)
+        case = self._get_case_for_current_user(self.current_case_id)
         if case:
             self.statusbar.showMessage(f"Case workspace: {case['name']}")
 
@@ -266,9 +284,11 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.evidence_upload)
         else:
             self.evidence_upload.set_case_id(self.current_case_id)
+
+        self.evidence_upload.prepare_for_entry()
         
         # Update status bar with case info
-        case = self.database.get_case(self.current_case_id)
+        case = self._get_case_for_current_user(self.current_case_id)
         if case:
             self.statusbar.showMessage(f"Uploading evidence for: {case['name']}")
         
@@ -290,7 +310,7 @@ class MainWindow(QMainWindow):
             self.metadata_table.set_case_id(self.current_case_id)
         
         # Update status bar
-        case = self.database.get_case(self.current_case_id)
+        case = self._get_case_for_current_user(self.current_case_id)
         if case:
             self.statusbar.showMessage(f"Viewing metadata for: {case['name']}")
         
@@ -307,7 +327,7 @@ class MainWindow(QMainWindow):
             self.timeline_view.set_case_id(self.current_case_id)
         
         # Update status bar
-        case = self.database.get_case(self.current_case_id)
+        case = self._get_case_for_current_user(self.current_case_id)
         if case:
             self.statusbar.showMessage(f"Timeline view for: {case['name']}")
         
@@ -323,7 +343,7 @@ class MainWindow(QMainWindow):
             self.analytics_dashboard.set_case_id(self.current_case_id)
         
         # Update status bar
-        case = self.database.get_case(self.current_case_id)
+        case = self._get_case_for_current_user(self.current_case_id)
         if case:
             self.statusbar.showMessage(f"Analytics for: {case['name']}")
         
@@ -332,10 +352,10 @@ class MainWindow(QMainWindow):
     def _handle_case_created(self, case_id: int):
         """Handle new case creation."""
         self.current_case_id = case_id
-        self.statusbar.showMessage(f"Case created (ID: {case_id})")
+        self.statusbar.showMessage(f"Case created (ID: {case_id}). Continue with evidence upload.")
 
-        # Show case workspace after creation.
-        self._show_case_home()
+        # After selecting case type, continue directly to evidence upload.
+        self._show_evidence_upload()
     
     
     def _logout(self):
@@ -344,6 +364,8 @@ class MainWindow(QMainWindow):
         self.current_user = None
         self.current_user_id = None
         self.current_case_id = None
+        self.cases_dashboard.set_current_user(None)
+        self.case_management.set_current_user(None)
         self.logout_button.setVisible(False)
         
         # Clear saved credentials to prevent auto-login

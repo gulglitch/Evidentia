@@ -24,16 +24,17 @@ class FileAnalysisWorker(QThread):
     
     progress_updated = Signal(int, int, str)  # current, total, message
     file_analyzed = Signal(dict)  # file_info dict
-    completed = Signal(int)  # total_files
+    completed = Signal(int, int)  # analyzed_files, skipped_files
     error_occurred = Signal(str)  # error_message
     
-    def __init__(self, folder_path: str, case_id: int):
+    def __init__(self, folder_path: str, case_id: int, known_file_paths: set[str] = None):
         super().__init__()
         self.folder_path = folder_path
         self.case_id = case_id
         self.scanner = FileScanner()
         self.database = Database()
         self._is_running = True
+        self.known_file_paths = known_file_paths or set()
     
     def run(self):
         """Scan and analyze folder contents."""
@@ -45,15 +46,28 @@ class FileAnalysisWorker(QThread):
             total_files = len(files)
             if total_files == 0:
                 self.progress_updated.emit(0, 0, "No files found in folder")
-                self.completed.emit(0)
+                self.completed.emit(0, 0)
                 return
             
             self.progress_updated.emit(0, total_files, f"Found {total_files} files. Starting analysis...")
+
+            analyzed_files = 0
+            skipped_files = 0
             
             # Process each file
             for i, file_path in enumerate(files):
                 if not self._is_running:
-                    break
+                    return
+
+                normalized_path = self._normalize_path(file_path)
+                if normalized_path in self.known_file_paths:
+                    skipped_files += 1
+                    self.progress_updated.emit(
+                        i + 1,
+                        total_files,
+                        f"Skipping already analyzed: {os.path.basename(file_path)}"
+                    )
+                    continue
                 
                 try:
                     # Extract metadata
@@ -83,6 +97,9 @@ class FileAnalysisWorker(QThread):
                         case_id=self.case_id,
                         file_data=file_data
                     )
+
+                    self.known_file_paths.add(normalized_path)
+                    analyzed_files += 1
                     
                     # Update risk level in database
                     self.database.update_evidence_risk(evidence_id, risk_level)
@@ -118,12 +135,21 @@ class FileAnalysisWorker(QThread):
                         f"Error processing {os.path.basename(file_path)}: {str(e)}"
                     )
                     continue
-            
-            self.progress_updated.emit(total_files, total_files, "Analysis complete!")
-            self.completed.emit(total_files)
+
+            summary = f"Analysis complete! {analyzed_files} new files analyzed"
+            if skipped_files:
+                summary += f" ({skipped_files} skipped as already analyzed)"
+
+            self.progress_updated.emit(total_files, total_files, summary)
+            self.completed.emit(analyzed_files, skipped_files)
             
         except Exception as e:
             self.error_occurred.emit(f"Error scanning folder: {str(e)}")
+
+    @staticmethod
+    def _normalize_path(file_path: str) -> str:
+        """Normalize file paths so duplicate checks are stable across runs."""
+        return os.path.normcase(os.path.normpath(file_path))
     
     def stop(self):
         """Stop the worker thread."""
@@ -366,12 +392,18 @@ class EvidenceUpload(QWidget):
         self.case_id = case_id
         self.database = Database()
         self.worker = None
+        self.last_analyzed_count = 0
         self._setup_ui()
         self._apply_styles()
     
     def set_case_id(self, case_id: int):
         """Set the current case ID."""
         self.case_id = case_id
+        self._update_header()
+
+    def prepare_for_entry(self):
+        """Refresh transient upload state whenever this screen is opened."""
+        self._reset_for_new_upload()
         self._update_header()
     
     def _setup_ui(self):
@@ -400,7 +432,7 @@ class EvidenceUpload(QWidget):
                 color: #e0e6ed;
             }
         """)
-        back_btn.clicked.connect(self.back_requested.emit)
+        back_btn.clicked.connect(self._handle_back_clicked)
         header_layout.addWidget(back_btn)
         
         header_layout.addStretch()
@@ -483,7 +515,7 @@ class EvidenceUpload(QWidget):
         self.view_table_btn.setFont(QFont("Arial", 13, QFont.Bold))
         self.view_table_btn.setFixedSize(220, 45)
         self.view_table_btn.setVisible(False)
-        self.view_table_btn.clicked.connect(lambda: self.upload_completed.emit(0))
+        self.view_table_btn.clicked.connect(self._handle_view_table_clicked)
         self.action_buttons_layout.addWidget(self.view_table_btn)
         
         progress_layout.addLayout(self.action_buttons_layout)
@@ -579,19 +611,33 @@ class EvidenceUpload(QWidget):
     
     def _handle_folder_selected(self, folder_path: str):
         """Handle folder selection and start analysis."""
+        if not self.case_id:
+            self.progress_container.setVisible(True)
+            self.drop_zone.setVisible(False)
+            self._handle_error("No active case selected for upload")
+            return
+
+        self._cleanup_worker()
+        self.last_analyzed_count = 0
+
         # Hide drop zone, show progress
         self.drop_zone.setVisible(False)
         self.progress_container.setVisible(True)
+        self.upload_more_btn.setVisible(False)
+        self.view_table_btn.setVisible(False)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("Preparing...")
+        self.progress_title.setText("Analyzing Files...")
+        self.progress_title.setStyleSheet("color: #e0e6ed;")
+        self.progress_status.setText("Preparing...")
         
         # Clear previous file list
-        self.empty_label.setVisible(False)
-        while self.file_list_layout.count() > 0:
-            item = self.file_list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self._clear_file_list(show_empty=False)
+
+        existing_paths = self._get_existing_evidence_paths()
         
         # Start worker
-        self.worker = FileAnalysisWorker(folder_path, self.case_id)
+        self.worker = FileAnalysisWorker(folder_path, self.case_id, known_file_paths=existing_paths)
         self.worker.progress_updated.connect(self._update_progress)
         self.worker.file_analyzed.connect(self._add_file_to_list)
         self.worker.completed.connect(self._analysis_completed)
@@ -604,6 +650,9 @@ class EvidenceUpload(QWidget):
             progress = int((current / total) * 100)
             self.progress_bar.setValue(progress)
             self.progress_bar.setFormat(f"{current}/{total} files")
+        else:
+            self.progress_bar.setValue(0)
+            self.progress_bar.setFormat("Preparing...")
         self.progress_status.setText(message)
     
     def _add_file_to_list(self, file_info: dict):
@@ -618,11 +667,31 @@ class EvidenceUpload(QWidget):
                 scroll_area.verticalScrollBar().maximum()
             )
     
-    def _analysis_completed(self, total_files: int):
+    def _analysis_completed(self, analyzed_files: int, skipped_files: int):
         """Handle analysis completion."""
-        self.progress_title.setText("✓ Analysis Complete!")
-        self.progress_title.setStyleSheet("color: #00d4aa;")
-        self.progress_status.setText(f"Successfully analyzed {total_files} files")
+        self.last_analyzed_count = analyzed_files
+        self._cleanup_worker(disconnect_signals=False)
+
+        if analyzed_files > 0:
+            self.progress_title.setText("✓ Analysis Complete!")
+            self.progress_title.setStyleSheet("color: #00d4aa;")
+            status_text = f"Successfully analyzed {analyzed_files} new files"
+            if skipped_files > 0:
+                status_text += f" ({skipped_files} already analyzed files skipped)"
+            self.progress_status.setText(status_text)
+        else:
+            self.progress_title.setText("No New Files Found")
+            self.progress_title.setStyleSheet("color: #f3c969;")
+            if skipped_files > 0:
+                self.progress_status.setText(
+                    f"All scanned files were already analyzed ({skipped_files} skipped)."
+                )
+            else:
+                self.progress_status.setText("No files were analyzed. Try another folder.")
+            self._clear_file_list(
+                show_empty=True,
+                message="No new files analyzed\nChoose another folder to continue"
+            )
         
         # Show action buttons
         self.upload_more_btn.setVisible(True)
@@ -633,12 +702,18 @@ class EvidenceUpload(QWidget):
     
     def _handle_error(self, error_message: str):
         """Handle analysis error."""
+        self._cleanup_worker(disconnect_signals=False)
         self.progress_title.setText("⚠ Error")
         self.progress_title.setStyleSheet("color: #ff6b6b;")
         self.progress_status.setText(error_message)
+        self.upload_more_btn.setVisible(True)
+        self.view_table_btn.setVisible(True)
     
     def _reset_for_new_upload(self):
         """Reset the screen for a new upload."""
+        self._cleanup_worker()
+        self.last_analyzed_count = 0
+
         # Hide progress container and show drop zone again
         self.progress_container.setVisible(False)
         self.drop_zone.setVisible(True)
@@ -649,15 +724,68 @@ class EvidenceUpload(QWidget):
         
         # Reset progress
         self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("Preparing...")
         self.progress_title.setText("Analyzing Files...")
         self.progress_title.setStyleSheet("color: #e0e6ed;")
         self.progress_status.setText("Preparing...")
         
-        # Clear file list (keep existing files, just clear the display for new batch)
-        # Actually, let's keep the file list to show cumulative uploads
-        # Just add a separator or timestamp
-        separator = QLabel(f"\n─── New Upload Batch ───\n")
-        separator.setAlignment(Qt.AlignCenter)
-        separator.setFont(QFont("Arial", 11, QFont.Bold))
-        separator.setStyleSheet("color: #40e0d0; padding: 10px;")
-        self.file_list_layout.addWidget(separator)
+        # Always start from a clean list so previous analyses are not shown as current work.
+        self._clear_file_list(show_empty=True)
+
+    def _clear_file_list(self, show_empty: bool, message: str = "No files yet\nSelect a folder to begin"):
+        """Clear file list content and restore empty-state label as needed."""
+        for index in range(self.file_list_layout.count() - 1, -1, -1):
+            item = self.file_list_layout.takeAt(index)
+            widget = item.widget()
+            if widget and widget is not self.empty_label:
+                widget.deleteLater()
+
+        self.empty_label.setText(message)
+        self.empty_label.setVisible(show_empty)
+
+        if self.file_list_layout.indexOf(self.empty_label) == -1:
+            self.file_list_layout.addWidget(self.empty_label)
+
+        if show_empty:
+            self.file_list_layout.setAlignment(self.empty_label, Qt.AlignCenter)
+
+    def _cleanup_worker(self, disconnect_signals: bool = True):
+        """Stop and clear any active analysis worker to avoid stale updates."""
+        if self.worker is None:
+            return
+
+        if disconnect_signals:
+            for signal, handler in (
+                (self.worker.progress_updated, self._update_progress),
+                (self.worker.file_analyzed, self._add_file_to_list),
+                (self.worker.completed, self._analysis_completed),
+                (self.worker.error_occurred, self._handle_error),
+            ):
+                try:
+                    signal.disconnect(handler)
+                except (RuntimeError, TypeError):
+                    pass
+
+        if self.worker.isRunning():
+            self.worker.stop()
+            self.worker.wait(3000)
+
+        self.worker = None
+
+    def _get_existing_evidence_paths(self) -> set[str]:
+        """Return normalized paths already attached to the current case."""
+        evidence_rows = self.database.get_evidence_for_case(self.case_id)
+        return {
+            FileAnalysisWorker._normalize_path(row.get('file_path', ''))
+            for row in evidence_rows
+            if row.get('file_path')
+        }
+
+    def _handle_back_clicked(self):
+        """Leave upload screen safely without leaving stale workers behind."""
+        self._cleanup_worker()
+        self.back_requested.emit()
+
+    def _handle_view_table_clicked(self):
+        """Open metadata table with last analysis count for status messaging."""
+        self.upload_completed.emit(self.last_analyzed_count)

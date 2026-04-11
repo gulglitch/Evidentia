@@ -302,38 +302,62 @@ class Database:
             )
             return cursor.lastrowid
     
-    def get_case(self, case_id: int) -> Optional[Dict[str, Any]]:
-        """Get a case by ID."""
+    def get_case(self, case_id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Get a case by ID, optionally scoped to a specific user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM cases WHERE id = ?", (case_id,))
+            if user_id is None:
+                cursor.execute("SELECT * FROM cases WHERE id = ?", (case_id,))
+            else:
+                cursor.execute(
+                    "SELECT * FROM cases WHERE id = ? AND user_id = ?",
+                    (case_id, user_id)
+                )
             row = cursor.fetchone()
             return dict(row) if row else None
     
-    def get_all_cases(self) -> List[Dict[str, Any]]:
-        """Get all cases."""
+    def get_all_cases(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get all cases, optionally scoped to a specific user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM cases ORDER BY created_at DESC")
+            if user_id is None:
+                cursor.execute("SELECT * FROM cases ORDER BY created_at DESC")
+            else:
+                cursor.execute(
+                    "SELECT * FROM cases WHERE user_id = ? ORDER BY created_at DESC",
+                    (user_id,)
+                )
             return [dict(row) for row in cursor.fetchall()]
     
-    def update_case_status(self, case_id: int, status: str):
-        """Update the status of a case."""
+    def update_case_status(self, case_id: int, status: str, user_id: Optional[int] = None):
+        """Update the status of a case, optionally scoped to a specific user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE cases SET status = ?, updated_at = ? WHERE id = ?",
-                (status, datetime.now(), case_id)
-            )
+            if user_id is None:
+                cursor.execute(
+                    "UPDATE cases SET status = ?, updated_at = ? WHERE id = ?",
+                    (status, datetime.now(), case_id)
+                )
+            else:
+                cursor.execute(
+                    "UPDATE cases SET status = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                    (status, datetime.now(), case_id, user_id)
+                )
     
-    def update_case_type(self, case_id: int, case_type: str):
-        """Update the type of a case."""
+    def update_case_type(self, case_id: int, case_type: str, user_id: Optional[int] = None):
+        """Update the type of a case, optionally scoped to a specific user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE cases SET case_type = ?, updated_at = ? WHERE id = ?",
-                (case_type, datetime.now(), case_id)
-            )
+            if user_id is None:
+                cursor.execute(
+                    "UPDATE cases SET case_type = ?, updated_at = ? WHERE id = ?",
+                    (case_type, datetime.now(), case_id)
+                )
+            else:
+                cursor.execute(
+                    "UPDATE cases SET case_type = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                    (case_type, datetime.now(), case_id, user_id)
+                )
     
     # Evidence operations
     def add_evidence(self, case_id: int, file_data: Dict[str, Any]) -> int:

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor, QPainter, QPen
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from backend.app.database import Database
 
@@ -54,9 +54,15 @@ class CasesDashboard(QWidget):
     def __init__(self):
         super().__init__()
         self.database = Database()
+        self.current_user_id: Optional[int] = None
         self.all_cases = []
         self._setup_ui()
         self._apply_styles()
+        self.load_cases()
+
+    def set_current_user(self, user_id: Optional[int]):
+        """Set current user context for case visibility."""
+        self.current_user_id = user_id
         self.load_cases()
     
     def _setup_ui(self):
@@ -338,8 +344,11 @@ class CasesDashboard(QWidget):
         """)
     
     def load_cases(self):
-        """Load all cases from database."""
-        self.all_cases = self.database.get_all_cases()
+        """Load cases for the current signed-in user."""
+        if self.current_user_id is None:
+            self.all_cases = []
+        else:
+            self.all_cases = self.database.get_all_cases(user_id=self.current_user_id)
         self._populate_table(self.all_cases)
         self._update_summary()
     

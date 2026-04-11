@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent
 import os
 from pathlib import Path
+from typing import Optional
 
 from backend.app.database import Database
 from backend.app.file_scanner import FileScanner
@@ -277,10 +278,15 @@ class CaseManagement(QWidget):
     def __init__(self):
         super().__init__()
         self.database = Database()
+        self.current_user_id: Optional[int] = None
         self.current_case_id = None
         self.selected_case_type = None
         self._setup_ui()
         self._apply_styles()
+
+    def set_current_user(self, user_id: Optional[int]):
+        """Set current user context for case creation and updates."""
+        self.current_user_id = user_id
     
     def _setup_ui(self):
         """Setup the case management UI with stacked steps."""
@@ -732,13 +738,19 @@ class CaseManagement(QWidget):
             self.step1_error.setText("Please enter a case name")
             self.step1_error.setVisible(True)
             return
+
+        if self.current_user_id is None:
+            self.step1_error.setText("You must be logged in to create a case")
+            self.step1_error.setVisible(True)
+            return
         
         # Create case in database
         case_desc = self.case_desc_input.toPlainText().strip()
         self.current_case_id = self.database.create_case(
             name=case_name,
             description=case_desc,
-            case_type="Pending"  # Will be updated in step 2
+            case_type="Pending",  # Will be updated in step 2
+            user_id=self.current_user_id
         )
         
         self.step1_error.setVisible(False)
@@ -759,7 +771,11 @@ class CaseManagement(QWidget):
             return
         
         # Update case type in database
-        self.database.update_case_type(self.current_case_id, self.selected_case_type)
+        self.database.update_case_type(
+            self.current_case_id,
+            self.selected_case_type,
+            user_id=self.current_user_id
+        )
         
         self.step2_error.setVisible(False)
         
