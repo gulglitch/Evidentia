@@ -1,0 +1,5 @@
+PK (fake zip file header)
+This is a fake ZIP archive for testing.
+Extension .zip is in MEDIUM_RISK_EXTENSIONS.
+Risk Score: 2 (extension) = 2 = LOW (but close to medium)
+Actually this will be MEDIUM if recently modified!

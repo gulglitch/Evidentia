@@ -1,0 +1,4 @@
+This is a fake executable file for testing risk assessment.
+The filename contains "hack" which triggers HIGH RISK.
+Extension .exe is in HIGH_RISK_EXTENSIONS.
+Risk Score: 3 (extension) + 2 (suspicious name) = 5 = HIGH RISK

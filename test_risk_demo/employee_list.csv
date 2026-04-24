@@ -1,0 +1,9 @@
+Employee ID,Name,Department,Email
+1001,John Smith,Engineering,john.smith@company.com
+1002,Sarah Johnson,Marketing,sarah.j@company.com
+1003,Mike Williams,Sales,mike.w@company.com
+1004,Lisa Brown,HR,lisa.b@company.com
+1005,David Lee,Finance,david.l@company.com
+
+This is a LOW RISK file - normal CSV spreadsheet.
+Risk Score: 1 (normal extension) = 1 = LOW RISK

@@ -1,0 +1,126 @@
+═══════════════════════════════════════════════════════════════
+    RISK ASSESSMENT TEST FILES - EXPECTED RESULTS
+═══════════════════════════════════════════════════════════════
+
+This folder contains 12 test files designed to demonstrate the
+automatic risk assessment system.
+
+───────────────────────────────────────────────────────────────
+HIGH RISK FILES (Expected: 4 files)
+───────────────────────────────────────────────────────────────
+
+1. suspicious_hack_tool.exe
+   ✓ Extension: .exe (HIGH_RISK_EXTENSIONS) = +3 points
+   ✓ Suspicious name: contains "hack" = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 6 points = HIGH RISK
+
+2. system_backdoor.dll
+   ✓ Extension: .dll (HIGH_RISK_EXTENSIONS) = +3 points
+   ✓ Suspicious name: contains "backdoor" = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 6 points = HIGH RISK
+
+3. malware_payload.bat
+   ✓ Extension: .bat (HIGH_RISK_EXTENSIONS) = +3 points
+   ✓ Suspicious name: contains "malware" + "payload" = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 6 points = HIGH RISK
+
+4. exploit_script.sh
+   ✓ Extension: .sh (HIGH_RISK_EXTENSIONS) = +3 points
+   ✓ Suspicious name: contains "exploit" = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 6 points = HIGH RISK
+
+───────────────────────────────────────────────────────────────
+MEDIUM RISK FILES (Expected: 4 files)
+───────────────────────────────────────────────────────────────
+
+5. suspicious_script.js
+   ✓ Extension: .js (MEDIUM_RISK_EXTENSIONS) = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 3 points = MEDIUM RISK
+
+6. database_backup.sql
+   ✓ Extension: .sql (MEDIUM_RISK_EXTENSIONS) = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 3 points = MEDIUM RISK
+
+7. confidential_data.zip
+   ✓ Extension: .zip (MEDIUM_RISK_EXTENSIONS) = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 3 points = MEDIUM RISK
+
+8. large_archive.rar
+   ✓ Extension: .rar (MEDIUM_RISK_EXTENSIONS) = +2 points
+   ✓ Recently modified = +1 point
+   → TOTAL: 3 points = MEDIUM RISK
+
+───────────────────────────────────────────────────────────────
+LOW RISK FILES (Expected: 4 files)
+───────────────────────────────────────────────────────────────
+
+9. meeting_notes.txt
+   ✓ Extension: .txt (normal) = +1 point
+   ✓ Recently modified = +1 point
+   → TOTAL: 2 points = LOW RISK
+
+10. company_logo.png
+    ✓ Extension: .png (normal) = +1 point
+    ✓ Recently modified = +1 point
+    → TOTAL: 2 points = LOW RISK
+
+11. annual_report.pdf
+    ✓ Extension: .pdf (normal) = +1 point
+    ✓ Recently modified = +1 point
+    → TOTAL: 2 points = LOW RISK
+
+12. employee_list.csv
+    ✓ Extension: .csv (normal) = +1 point
+    ✓ Recently modified = +1 point
+    → TOTAL: 2 points = LOW RISK
+
+───────────────────────────────────────────────────────────────
+RISK SCORING SYSTEM
+───────────────────────────────────────────────────────────────
+
+Points are awarded based on:
+
+1. FILE EXTENSION:
+   - High-risk (.exe, .dll, .bat, .sh, etc.) = +3 points
+   - Medium-risk (.zip, .rar, .js, .sql, etc.) = +2 points
+   - Normal (.txt, .pdf, .png, .csv, etc.) = +1 point
+
+2. FILE SIZE:
+   - Very large (>500 MB) = +2 points
+   - Large (>100 MB) = +1 point
+   - Normal = 0 points
+
+3. RECENT MODIFICATION:
+   - Modified within last 7 days = +1 point
+
+4. SUSPICIOUS FILENAME:
+   - Contains keywords (hack, crack, malware, exploit, etc.) = +2 points
+
+FINAL RISK LEVEL:
+   - Score ≥ 5 = HIGH RISK
+   - Score ≥ 3 = MEDIUM RISK
+   - Score < 3 = LOW RISK
+
+───────────────────────────────────────────────────────────────
+HOW TO TEST
+───────────────────────────────────────────────────────────────
+
+1. Run the Evidentia application
+2. Create a new case or open an existing one
+3. Go to Evidence Upload screen
+4. Select this folder: test_risk_demo
+5. Watch the files being analyzed
+6. Check the Metadata Table to see risk levels
+7. Verify the risk colors:
+   - HIGH = Red
+   - MEDIUM = Yellow/Orange
+   - LOW = Green
+
+═══════════════════════════════════════════════════════════════

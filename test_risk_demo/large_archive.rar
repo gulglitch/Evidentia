@@ -1,0 +1,6 @@
+Rar! (fake RAR header)
+This is a fake RAR archive for testing.
+Extension .rar is in MEDIUM_RISK_EXTENSIONS.
+Risk Score: 2 (extension) + 1 (recent) = 3 = MEDIUM RISK
+
+The actual file size is small, but the extension triggers medium risk.
