@@ -50,6 +50,7 @@ class CasesDashboard(QWidget):
     
     case_selected = Signal(int)  # case_id
     new_case_requested = Signal()
+    quick_stats_requested = Signal()  # New signal for quick stats
     
     def __init__(self):
         super().__init__()
@@ -198,6 +199,13 @@ class CasesDashboard(QWidget):
         # Primary case action row
         action_layout = QHBoxLayout()
         action_layout.setSpacing(12)
+
+        # Quick Stats button (left side)
+        self.quick_stats_btn = QPushButton("Investigation Statistics")
+        self.quick_stats_btn.setFont(QFont("Arial", 12, QFont.Bold))
+        self.quick_stats_btn.setFixedSize(220, 40)
+        self.quick_stats_btn.clicked.connect(self.quick_stats_requested.emit)
+        action_layout.addWidget(self.quick_stats_btn)
 
         self.open_case_btn = QPushButton("Open Selected Case")
         self.open_case_btn.setFont(QFont("Arial", 12, QFont.Bold))

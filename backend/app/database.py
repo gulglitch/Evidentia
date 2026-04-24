@@ -432,51 +432,157 @@ class Database:
                 (case_id, user_id, action, details)
             )
     
-    def get_recent_activity(self, case_id: int, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recent activity for a case."""
+    def get_recent_activity(self, case_id: int = None, limit: int = 10, user_id: int = None) -> List[Dict[str, Any]]:
+        """
+        Get recent activity for a case or all cases for a user.
+        
+        Args:
+            case_id: Optional case ID to filter by
+            limit: Maximum number of activities to return
+            user_id: Optional user ID to filter by
+            
+        Returns:
+            List of activity log entries with user and case information
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM activity_log WHERE case_id = ? ORDER BY timestamp DESC LIMIT ?",
-                (case_id, limit)
-            )
+            
+            # Build query based on filters
+            query = """
+                SELECT 
+                    al.*,
+                    u.full_name as user_name,
+                    c.name as case_name
+                FROM activity_log al
+                LEFT JOIN users u ON al.user_id = u.id
+                LEFT JOIN cases c ON al.case_id = c.id
+                WHERE 1=1
+            """
+            params = []
+            
+            if case_id is not None:
+                query += " AND al.case_id = ?"
+                params.append(case_id)
+            
+            if user_id is not None:
+                query += " AND al.user_id = ?"
+                params.append(user_id)
+            
+            query += " ORDER BY al.timestamp DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
+    
+    def get_all_recent_activity(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get recent activity across all cases."""
+        return self.get_recent_activity(case_id=None, limit=limit)
     
     # ──────────────────────────────────────────────
     # Statistics
     # ──────────────────────────────────────────────
     
-    def get_dashboard_stats(self) -> Dict[str, Any]:
-        """Get overall statistics for the dashboard."""
+    def get_dashboard_stats(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Get overall statistics for the dashboard.
+        
+        Args:
+            user_id: Optional user ID to scope stats to a specific user
+            
+        Returns:
+            Dictionary with comprehensive statistics
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
+            # Build WHERE clause for user filtering
+            user_filter = ""
+            user_params = []
+            if user_id is not None:
+                user_filter = " WHERE user_id = ?"
+                user_params = [user_id]
+            
             # Total cases
-            cursor.execute("SELECT COUNT(*) as total FROM cases")
+            cursor.execute(f"SELECT COUNT(*) as total FROM cases{user_filter}", user_params)
             total_cases = cursor.fetchone()['total']
             
             # Case status breakdown
-            cursor.execute("SELECT status, COUNT(*) as count FROM cases GROUP BY status")
+            cursor.execute(f"SELECT status, COUNT(*) as count FROM cases{user_filter} GROUP BY status", user_params)
             case_status = {row['status']: row['count'] for row in cursor.fetchall()}
             
             # Case type breakdown
-            cursor.execute("SELECT case_type, COUNT(*) as count FROM cases GROUP BY case_type")
+            cursor.execute(f"SELECT case_type, COUNT(*) as count FROM cases{user_filter} GROUP BY case_type", user_params)
             case_types = {row['case_type']: row['count'] for row in cursor.fetchall()}
             
-            # Total evidence files
-            cursor.execute("SELECT COUNT(*) as total FROM evidence")
+            # Total evidence files (across user's cases)
+            if user_id is not None:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM evidence e
+                    JOIN cases c ON e.case_id = c.id
+                    WHERE c.user_id = ?
+                """, [user_id])
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM evidence")
             total_evidence = cursor.fetchone()['total']
             
             # Evidence status breakdown
-            cursor.execute("SELECT status, COUNT(*) as count FROM evidence GROUP BY status")
+            if user_id is not None:
+                cursor.execute("""
+                    SELECT e.status, COUNT(*) as count 
+                    FROM evidence e
+                    JOIN cases c ON e.case_id = c.id
+                    WHERE c.user_id = ?
+                    GROUP BY e.status
+                """, [user_id])
+            else:
+                cursor.execute("SELECT status, COUNT(*) as count FROM evidence GROUP BY status")
             evidence_status = {row['status']: row['count'] for row in cursor.fetchall()}
+            
+            # Risk level breakdown
+            if user_id is not None:
+                cursor.execute("""
+                    SELECT e.risk_level, COUNT(*) as count 
+                    FROM evidence e
+                    JOIN cases c ON e.case_id = c.id
+                    WHERE c.user_id = ?
+                    GROUP BY e.risk_level
+                """, [user_id])
+            else:
+                cursor.execute("SELECT risk_level, COUNT(*) as count FROM evidence GROUP BY risk_level")
+            risk_breakdown = {row['risk_level']: row['count'] for row in cursor.fetchall()}
+            
+            # Total users (only if not filtered by user)
+            if user_id is None:
+                cursor.execute("SELECT COUNT(*) as total FROM users")
+                total_users = cursor.fetchone()['total']
+            else:
+                total_users = 1
+            
+            # Active cases (Open or In Progress)
+            active_statuses = ['Open', 'In Progress', 'Active']
+            placeholders = ','.join('?' * len(active_statuses))
+            if user_id is not None:
+                cursor.execute(
+                    f"SELECT COUNT(*) as total FROM cases WHERE user_id = ? AND status IN ({placeholders})",
+                    [user_id] + active_statuses
+                )
+            else:
+                cursor.execute(
+                    f"SELECT COUNT(*) as total FROM cases WHERE status IN ({placeholders})",
+                    active_statuses
+                )
+            active_cases = cursor.fetchone()['total']
             
             return {
                 'total_cases': total_cases,
+                'active_cases': active_cases,
                 'case_status': case_status,
                 'case_types': case_types,
                 'total_evidence': total_evidence,
                 'evidence_status': evidence_status,
+                'risk_breakdown': risk_breakdown,
+                'total_users': total_users,
             }
     
     def get_case_stats(self, case_id: int) -> Dict[str, Any]:

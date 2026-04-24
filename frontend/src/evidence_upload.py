@@ -679,6 +679,13 @@ class EvidenceUpload(QWidget):
             if skipped_files > 0:
                 status_text += f" ({skipped_files} already analyzed files skipped)"
             self.progress_status.setText(status_text)
+            
+            # Log activity to database
+            self.database.log_activity(
+                case_id=self.case_id,
+                action=f"Evidence Upload",
+                details=f"Uploaded and analyzed {analyzed_files} evidence files"
+            )
         else:
             self.progress_title.setText("No New Files Found")
             self.progress_title.setStyleSheet("color: #f3c969;")

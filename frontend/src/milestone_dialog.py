@@ -201,6 +201,13 @@ class MilestoneDialog(QDialog):
                 description
             )
             
+            # Log activity to recent activity feed
+            self.database.log_activity(
+                case_id=self.case_id,
+                action="Milestone Added",
+                details=f"Added milestone: {name} (Date: {date})"
+            )
+            
             # Clear form
             self.name_input.clear()
             self.date_input.setDate(QDate.currentDate())
@@ -225,6 +232,7 @@ class MilestoneDialog(QDialog):
             return
         
         milestone_id = current_item.data(Qt.UserRole)
+        milestone_name = current_item.text().split(' - ')[0]  # Extract milestone name
         
         reply = QMessageBox.question(
             self,
@@ -236,6 +244,14 @@ class MilestoneDialog(QDialog):
         if reply == QMessageBox.Yes:
             try:
                 self.database.delete_milestone(milestone_id)
+                
+                # Log activity to recent activity feed
+                self.database.log_activity(
+                    case_id=self.case_id,
+                    action="Milestone Deleted",
+                    details=f"Deleted milestone: {milestone_name}"
+                )
+                
                 self._load_milestones()
                 self.milestone_added.emit()
                 QMessageBox.information(self, "Success", "Milestone deleted successfully!")

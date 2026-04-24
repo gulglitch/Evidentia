@@ -752,6 +752,14 @@ class MetadataTable(QWidget):
                 self.database.update_evidence_status(evidence_id, new_status)
                 evidence['status'] = new_status
                 
+                # Log activity
+                file_name = evidence.get('file_name', 'Unknown file')
+                self.database.log_activity(
+                    case_id=self.case_id,
+                    action="Evidence Status Updated",
+                    details=f"Changed status of '{file_name}' to {new_status}"
+                )
+                
                 # Update table cell
                 status_item = self.table.item(row, 7)
                 status_item.setText(new_status)
@@ -814,6 +822,14 @@ class MetadataTable(QWidget):
             try:
                 self.database.update_evidence_risk(evidence_id, new_risk)
                 evidence['risk_level'] = new_risk
+                
+                # Log activity
+                file_name = evidence.get('file_name', 'Unknown file')
+                self.database.log_activity(
+                    case_id=self.case_id,
+                    action="Risk Level Updated",
+                    details=f"Changed risk level of '{file_name}' from {current_risk} to {new_risk}"
+                )
                 
                 # Update table cell
                 risk_item = self.table.item(row, 8)

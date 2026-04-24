@@ -777,6 +777,16 @@ class CaseManagement(QWidget):
             user_id=self.current_user_id
         )
         
+        # Log activity
+        case = self.database.get_case(self.current_case_id, user_id=self.current_user_id)
+        if case:
+            self.database.log_activity(
+                case_id=self.current_case_id,
+                user_id=self.current_user_id,
+                action="Case Created",
+                details=f"Created new case: {case['name']} (Type: {self.selected_case_type})"
+            )
+        
         self.step2_error.setVisible(False)
         
         # Emit case_created signal to navigate to evidence upload screen

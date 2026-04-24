@@ -23,6 +23,7 @@ from .evidence_upload import EvidenceUpload
 from .metadata_table import MetadataTable
 from .timeline_view import TimelineView
 from .analytics_dashboard import AnalyticsDashboard
+from .quick_stats_dashboard import QuickStatsDashboard
 from .new_case_dialog import NewCaseDialog
 from .case_home import CaseHome
 from backend.app.database import Database
@@ -64,6 +65,7 @@ class MainWindow(QMainWindow):
         self.profile_setup = ProfileSetupScreen()
         self.cases_dashboard = CasesDashboard()
         self.case_management = CaseManagement()
+        self.quick_stats_dashboard = None  # Created when needed
         self.case_home = None  # Created when needed
         self.evidence_upload = None  # Created when needed
         self.metadata_table = None  # Created when needed
@@ -83,6 +85,7 @@ class MainWindow(QMainWindow):
         self.profile_setup.setup_completed.connect(self._handle_profile_completed)
         self.cases_dashboard.new_case_requested.connect(self._show_case_management)
         self.cases_dashboard.case_selected.connect(self._handle_case_selected)
+        self.cases_dashboard.quick_stats_requested.connect(self._show_quick_stats_dashboard)
         self.case_management.case_created.connect(self._handle_case_created)
         self.case_management.back_requested.connect(self._show_cases_dashboard)
         
@@ -215,6 +218,18 @@ class MainWindow(QMainWindow):
         self._set_window_background(None)
         self.cases_dashboard.load_cases()
         self.stacked_widget.setCurrentWidget(self.cases_dashboard)
+    
+    def _show_quick_stats_dashboard(self):
+        """Show the quick stats dashboard screen."""
+        if self.quick_stats_dashboard is None:
+            self.quick_stats_dashboard = QuickStatsDashboard(self.current_user_id)
+            self.quick_stats_dashboard.back_requested.connect(self._show_cases_dashboard)
+            self.stacked_widget.addWidget(self.quick_stats_dashboard)
+        else:
+            self.quick_stats_dashboard.set_current_user(self.current_user_id)
+        
+        self.statusbar.showMessage("Viewing Investigation Statistics Dashboard")
+        self.stacked_widget.setCurrentWidget(self.quick_stats_dashboard)
     
     def _show_case_management(self):
         """Show the case management screen."""
