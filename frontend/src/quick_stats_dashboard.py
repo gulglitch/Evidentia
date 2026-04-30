@@ -293,7 +293,7 @@ class QuickStatsDashboard(QWidget):
         
         main_layout.addLayout(header_layout)
         
-        # Stats cards grid
+        # Stats cards grid (4 columns x 2 rows = 8 cards)
         stats_grid = QGridLayout()
         stats_grid.setSpacing(16)
         
@@ -303,13 +303,17 @@ class QuickStatsDashboard(QWidget):
         self.analyzed_card = StatCard("Analyzed", "0", "Evidence reviewed", "#8b5cf6")
         self.pending_card = StatCard("Pending", "0", "Awaiting review", "#f59e0b")
         self.high_risk_card = StatCard("High Risk", "0", "Critical items", "#ef4444")
+        self.team_members_card = StatCard("Team Members", "0", "Total investigators", "#06b6d4")
+        self.completion_rate_card = StatCard("Completion Rate", "0%", "Cases closed", "#10b981")
         
         stats_grid.addWidget(self.total_cases_card, 0, 0)
         stats_grid.addWidget(self.active_cases_card, 0, 1)
         stats_grid.addWidget(self.total_evidence_card, 0, 2)
-        stats_grid.addWidget(self.analyzed_card, 1, 0)
-        stats_grid.addWidget(self.pending_card, 1, 1)
-        stats_grid.addWidget(self.high_risk_card, 1, 2)
+        stats_grid.addWidget(self.analyzed_card, 0, 3)
+        stats_grid.addWidget(self.pending_card, 1, 0)
+        stats_grid.addWidget(self.high_risk_card, 1, 1)
+        stats_grid.addWidget(self.team_members_card, 1, 2)
+        stats_grid.addWidget(self.completion_rate_card, 1, 3)
         
         main_layout.addLayout(stats_grid)
         
@@ -400,25 +404,22 @@ class QuickStatsDashboard(QWidget):
         # Load stats
         stats = self.database.get_dashboard_stats(user_id=self.current_user_id)
         
-        # Update stat cards
-        self.total_cases_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(stats.get('total_cases', 0)))
-        self.active_cases_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(stats.get('active_cases', 0)))
-        self.total_evidence_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(stats.get('total_evidence', 0)))
-        
-        evidence_status = stats.get('evidence_status', {})
-        self.analyzed_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(evidence_status.get('Analyzed', 0)))
-        self.pending_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(evidence_status.get('Pending', 0)))
-        
-        risk_breakdown = stats.get('risk_breakdown', {})
-        self.high_risk_card.findChild(QLabel, "", Qt.FindChildrenRecursively).setText(str(risk_breakdown.get('High', 0)))
-        
         # Update stat card values properly
         self._update_stat_card(self.total_cases_card, str(stats.get('total_cases', 0)))
         self._update_stat_card(self.active_cases_card, str(stats.get('active_cases', 0)))
         self._update_stat_card(self.total_evidence_card, str(stats.get('total_evidence', 0)))
+        
+        evidence_status = stats.get('evidence_status', {})
         self._update_stat_card(self.analyzed_card, str(evidence_status.get('Analyzed', 0)))
         self._update_stat_card(self.pending_card, str(evidence_status.get('Pending', 0)))
+        
+        risk_breakdown = stats.get('risk_breakdown', {})
         self._update_stat_card(self.high_risk_card, str(risk_breakdown.get('High', 0)))
+        
+        # New stats
+        self._update_stat_card(self.team_members_card, str(stats.get('total_users', 0)))
+        completion_rate = stats.get('completion_rate', 0.0)
+        self._update_stat_card(self.completion_rate_card, f"{completion_rate}%")
         
         # Load recent activity
         activities = self.database.get_recent_activity(

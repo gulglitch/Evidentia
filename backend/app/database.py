@@ -574,9 +574,32 @@ class Database:
                 )
             active_cases = cursor.fetchone()['total']
             
+            # Closed cases
+            closed_statuses = ['Closed', 'Completed']
+            placeholders_closed = ','.join('?' * len(closed_statuses))
+            if user_id is not None:
+                cursor.execute(
+                    f"SELECT COUNT(*) as total FROM cases WHERE user_id = ? AND status IN ({placeholders_closed})",
+                    [user_id] + closed_statuses
+                )
+            else:
+                cursor.execute(
+                    f"SELECT COUNT(*) as total FROM cases WHERE status IN ({placeholders_closed})",
+                    closed_statuses
+                )
+            closed_cases = cursor.fetchone()['total']
+            
+            # Calculate completion rate
+            if total_cases > 0:
+                completion_rate = round((closed_cases / total_cases) * 100, 1)
+            else:
+                completion_rate = 0.0
+            
             return {
                 'total_cases': total_cases,
                 'active_cases': active_cases,
+                'closed_cases': closed_cases,
+                'completion_rate': completion_rate,
                 'case_status': case_status,
                 'case_types': case_types,
                 'total_evidence': total_evidence,
