@@ -60,6 +60,7 @@ class HorizontalPanGraphicsView(QGraphicsView):
         self._is_panning = False
         self._last_pos = None
         self.setCursor(Qt.OpenHandCursor)
+        self.timeline_view_parent = None  # Will be set by TimelineView
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -88,6 +89,23 @@ class HorizontalPanGraphicsView(QGraphicsView):
             event.accept()
             return
         super().mouseReleaseEvent(event)
+    
+    def mouseDoubleClickEvent(self, event):
+        """Handle double-click on timeline items."""
+        if event.button() == Qt.LeftButton:
+            # Get item at click position
+            item = self.itemAt(event.pos())
+            
+            # Check if it's a milestone diamond (QGraphicsTextItem with diamond)
+            if isinstance(item, QGraphicsTextItem):
+                milestone_data = item.data(0)
+                if milestone_data and self.timeline_view_parent:
+                    # Show milestone info dialog
+                    self.timeline_view_parent._show_milestone_info(milestone_data)
+                    event.accept()
+                    return
+        
+        super().mouseDoubleClickEvent(event)
 
 
 class TimelineMarker(QGraphicsEllipseItem):
@@ -197,11 +215,68 @@ class TimelineView(QWidget):
         self.case_id = case_id
         self.load_timeline()
     
+    def _detect_accurate_case_stage(self):
+        """
+        Accurately detect the current case progression stage based on evidence analysis.
+        
+        Logic:
+        1. Case Created: No evidence uploaded yet
+        2. Evidence Collected: Evidence uploaded but none analyzed
+        3. Analysis In Progress: At least one evidence file analyzed, but not all
+        4. Review: All evidence files analyzed (investigator can manually set)
+        5. Closed: Investigator manually sets this
+        
+        Returns:
+            str: Stage ID ("created", "evidence", "analysis", "review", "closed")
+        """
+        if not self.case_id:
+            return "created"
+        
+        # Get case from database
+        case = self.database.get_case(self.case_id)
+        if not case:
+            return "created"
+        
+        db_status = case.get('status', 'Active').lower()
+        
+        # If investigator manually set to Review or Closed, respect that
+        if db_status == 'closed':
+            return "closed"
+        elif db_status == 'review':
+            return "review"
+        
+        # Get all evidence for this case
+        evidence_list = self.database.get_evidence_for_case(self.case_id)
+        total_evidence = len(evidence_list)
+        
+        # Stage 1: Case Created (no evidence)
+        if total_evidence == 0:
+            return "created"
+        
+        # Count analyzed evidence
+        analyzed_count = sum(1 for ev in evidence_list if ev.get('status', 'Pending') == 'Analyzed')
+        
+        # Stage 2: Evidence Collected (has evidence but none analyzed)
+        if analyzed_count == 0:
+            return "evidence"
+        
+        # Stage 3: Analysis In Progress (some but not all analyzed)
+        if analyzed_count < total_evidence:
+            return "analysis"
+        
+        # Stage 4: Review (all evidence analyzed)
+        # Note: This is auto-detected, but investigator can also manually set it
+        if analyzed_count == total_evidence:
+            return "review"
+        
+        # Default fallback
+        return "created"
+    
     def _add_case_progression_bar(self, parent_layout):
         """Add case progression stages bar with clean, connected design."""
-        progression_frame = QFrame()
-        progression_frame.setFrameShape(QFrame.StyledPanel)
-        progression_frame.setStyleSheet("""
+        self.progression_frame = QFrame()
+        self.progression_frame.setFrameShape(QFrame.StyledPanel)
+        self.progression_frame.setStyleSheet("""
             QFrame {
                 background-color: #0d2137;
                 border: 2px solid #1a4a5a;
@@ -209,9 +284,9 @@ class TimelineView(QWidget):
             }
         """)
         
-        progression_layout = QVBoxLayout(progression_frame)
-        progression_layout.setSpacing(15)
-        progression_layout.setContentsMargins(30, 25, 30, 30)  # top, right, bottom, left - more top margin
+        self.progression_layout = QVBoxLayout(self.progression_frame)
+        self.progression_layout.setSpacing(15)
+        self.progression_layout.setContentsMargins(30, 25, 30, 30)  # top, right, bottom, left - more top margin
         
         # Title - larger and positioned top-left
         title_container = QWidget()
@@ -303,7 +378,7 @@ class TimelineView(QWidget):
         self.status_combo.currentTextChanged.connect(self._on_status_changed)
         title_layout.addWidget(self.status_combo)
         
-        progression_layout.addWidget(title_container)
+        self.progression_layout.addWidget(title_container)
         
         # Create a single widget for the entire progression line
         progression_widget = QWidget()
@@ -450,35 +525,8 @@ class TimelineView(QWidget):
             ("Closed", "closed")
         ]
         
-        # Get current case status dynamically from database
-        current_status = "created"  # Default to first stage
-        if self.case_id:
-            case = self.database.get_case(self.case_id)
-            if case:
-                db_status = case.get('status', 'Active').lower()
-                
-                # Map database status to progression stages
-                # This makes it fully dynamic based on case status
-                if db_status == 'closed':
-                    current_status = "closed"
-                elif db_status == 'review':
-                    current_status = "review"
-                elif db_status == 'active':
-                    # Check if evidence has been collected
-                    evidence_count = len(self.database.get_evidence_for_case(self.case_id))
-                    if evidence_count > 0:
-                        current_status = "analysis"  # Has evidence, in analysis
-                    else:
-                        current_status = "evidence"  # No evidence yet
-                elif db_status == 'new' or db_status == 'created':
-                    current_status = "created"
-                else:
-                    # Default: if case exists and has evidence, assume analysis
-                    evidence_count = len(self.database.get_evidence_for_case(self.case_id))
-                    if evidence_count > 0:
-                        current_status = "analysis"
-                    else:
-                        current_status = "evidence"
+        # Get current case status dynamically from database with ACCURATE detection
+        current_status = self._detect_accurate_case_stage()
         
         # Update the dropdown to match current status
         status_map = {
@@ -490,12 +538,12 @@ class TimelineView(QWidget):
         }
         if hasattr(self, 'status_combo'):
             self.status_combo.blockSignals(True)  # Prevent triggering change event
-            self.status_combo.setCurrentText(status_map.get(current_status, "Evidence Collected"))
+            self.status_combo.setCurrentText(status_map.get(current_status, "Case Created"))
             self.status_combo.blockSignals(False)
         
         # Determine which stages are complete
         stage_order = ["created", "evidence", "analysis", "review", "closed"]
-        current_index = stage_order.index(current_status) if current_status in stage_order else 1
+        current_index = stage_order.index(current_status) if current_status in stage_order else 0
         
         # Prepare stage data
         stages_data = []
@@ -505,12 +553,12 @@ class TimelineView(QWidget):
             is_future = i > current_index
             stages_data.append((stage_name, stage_id, is_complete, is_current, is_future))
         
-        # Create the custom widget
-        progression_line = ProgressionLineWidget(stages_data)
-        progression_layout.addWidget(progression_line)
+        # Create the custom widget and store it as instance variable
+        self.progression_line = ProgressionLineWidget(stages_data)
+        self.progression_layout.addWidget(self.progression_line)
         
         # Add to parent layout
-        parent_layout.addWidget(progression_frame)
+        parent_layout.addWidget(self.progression_frame)
     
     def _setup_ui(self):
         """Setup the timeline UI."""
@@ -686,6 +734,7 @@ class TimelineView(QWidget):
         # Timeline canvas
         self.scene = QGraphicsScene()
         self.view = HorizontalPanGraphicsView(self.scene)
+        self.view.timeline_view_parent = self  # Set parent reference for double-click handling
         self.view.setRenderHint(QPainter.Antialiasing)
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # No vertical scroll
@@ -888,6 +937,25 @@ class TimelineView(QWidget):
         case = self.database.get_case(self.case_id)
         if case:
             self.title_label.setText(f"Timeline - {case['name']}")
+            
+            # Update status dropdown to reflect ACCURATE current case stage
+            current_stage_id = self._detect_accurate_case_stage()
+            
+            # Map stage ID to dropdown text
+            stage_to_dropdown = {
+                'created': 'Case Created',
+                'evidence': 'Evidence Collected',
+                'analysis': 'Analysis In Progress',
+                'review': 'Review',
+                'closed': 'Closed'
+            }
+            
+            dropdown_text = stage_to_dropdown.get(current_stage_id, 'Case Created')
+            
+            # Update dropdown without triggering the change event
+            self.status_combo.blockSignals(True)
+            self.status_combo.setCurrentText(dropdown_text)
+            self.status_combo.blockSignals(False)
         
         # Get timeline data
         date_field = 'modified_time' if self.date_field_combo.currentText() == "Modified Date" else 'created_time'
@@ -1106,10 +1174,10 @@ class TimelineView(QWidget):
         self._add_smart_date_labels(
             start_date, end_date, margin, scene_width, baseline_y)
 
-        # Milestones
+        # Milestones - pass y_at_x function for curve positioning
         self._add_milestones(
             start_date, end_date, total_seconds,
-            margin, scene_width, baseline_y)
+            margin, scene_width, baseline_y, y_at_x)
 
         # Scene rect
         self.scene.setSceneRect(0, 0, scene_width, scene_height)
@@ -1214,7 +1282,7 @@ class TimelineView(QWidget):
         y_label.setTransform(transform)
         y_label.setZValue(5)
 
-    def _add_milestones(self, start_date, end_date, time_span, margin, timeline_width, timeline_y):
+    def _add_milestones(self, start_date, end_date, time_span, margin, timeline_width, timeline_y, y_at_x_func):
         """Add milestone markers to timeline."""
         milestones = self.timeline_data.get('milestones', [])
         
@@ -1236,53 +1304,41 @@ class TimelineView(QWidget):
             x_ratio = time_offset / time_span
             x_pos = margin + (x_ratio * (timeline_width - 2 * margin))
             
-            # Draw thicker, more prominent vertical line
-            line = QGraphicsLineItem(x_pos, timeline_y - 80, x_pos, timeline_y + 80)
-            line.setPen(QPen(QColor("#f59e0b"), 4, Qt.DashLine))  # Thicker line
-            line.setZValue(-1)  # Behind markers
-            self.scene.addItem(line)
+            # Get Y position on the curve using the lookup function
+            y_pos = y_at_x_func(x_pos)
             
-            # Add larger milestone marker with glow
-            milestone_marker = QGraphicsEllipseItem(x_pos - 14, timeline_y - 14, 28, 28)  # Larger
-            milestone_marker.setBrush(QBrush(QColor("#f59e0b")))
-            milestone_marker.setPen(QPen(QColor("#ffffff"), 3))  # Thicker border
-            milestone_marker.setZValue(50)
+            # Add smaller diamond-shaped milestone marker using Unicode
+            diamond_text = self.scene.addText("◆")  # Unicode diamond
+            diamond_text.setDefaultTextColor(QColor("#f59e0b"))
+            diamond_text.setFont(QFont("Arial", 20, QFont.Bold))  # Reduced from 32 to 20
+            diamond_text.setZValue(50)
             
-            # Add glow effect to milestone
+            # Center the diamond on the curve
+            diamond_rect = diamond_text.boundingRect()
+            diamond_text.setPos(x_pos - diamond_rect.width() / 2, y_pos - diamond_rect.height() / 2)
+            
+            # Make diamond clickable
+            diamond_text.setFlag(QGraphicsTextItem.ItemIsSelectable, False)
+            diamond_text.setCursor(Qt.PointingHandCursor)
+            
+            # Store milestone data for click handling
+            diamond_text.setData(0, milestone)  # Store milestone data
+            
+            # Add glow effect to milestone diamond
             from PySide6.QtWidgets import QGraphicsDropShadowEffect
             milestone_shadow = QGraphicsDropShadowEffect()
-            milestone_shadow.setBlurRadius(15)
-            milestone_shadow.setColor(QColor(245, 158, 11, 150))  # Orange glow
+            milestone_shadow.setBlurRadius(20)
+            milestone_shadow.setColor(QColor(245, 158, 11, 180))  # Orange glow
             milestone_shadow.setOffset(0, 0)
-            milestone_marker.setGraphicsEffect(milestone_shadow)
+            diamond_text.setGraphicsEffect(milestone_shadow)
             
-            milestone_marker.setToolTip(
+            # Tooltip for hover
+            diamond_text.setToolTip(
                 f"Milestone: {milestone.get('milestone_name', 'Unknown')}\n"
-                f"Date: {milestone_date.strftime('%Y-%m-%d')}\n"
-                f"{milestone.get('description', '')}"
+                f"Double-click to view details"
             )
-            self.scene.addItem(milestone_marker)
             
-            # Add label above with background
-            label = self.scene.addText(milestone.get('milestone_name', 'Milestone'))
-            label.setDefaultTextColor(QColor("#f59e0b"))
-            label.setFont(QFont("Arial", 11, QFont.Bold))  # Larger, bolder
-            label_width = label.boundingRect().width()
-            label.setPos(x_pos - label_width / 2, timeline_y - 105)
-            label.setZValue(50)
-            
-            # Add background to label
-            label_rect = label.boundingRect()
-            label_bg = self.scene.addRect(
-                label.x() - 4,
-                label.y() - 2,
-                label_rect.width() + 8,
-                label_rect.height() + 4
-            )
-            label_bg.setBrush(QBrush(QColor("#0d2137")))
-            label_bg.setPen(QPen(QColor("#f59e0b"), 2))
-            label_bg.setZValue(49)
-            label.setZValue(50)
+            # REMOVED: Label above milestone (no longer showing name on timeline)
     
     def _apply_date_filter(self):
         """Apply date range filter."""
@@ -1406,11 +1462,76 @@ class TimelineView(QWidget):
         return f"{size_bytes:.1f} TB"
     
     def _on_status_changed(self, status_text: str):
-        """Handle case status change from dropdown."""
+        """Handle case status change from dropdown with forward-only validation."""
         if not self.case_id:
             return
         
+        # Define progression order (index represents progression level)
+        progression_order = [
+            "Case Created",           # 0
+            "Evidence Collected",     # 1
+            "Analysis In Progress",   # 2
+            "Review",                 # 3
+            "Closed"                  # 4
+        ]
+        
+        # Get current stage using accurate detection
+        current_stage_id = self._detect_accurate_case_stage()
+        
+        # Map stage ID to progression level
+        stage_to_level = {
+            'created': 0,
+            'evidence': 1,
+            'analysis': 2,
+            'review': 3,
+            'closed': 4
+        }
+        
+        # Get current progression level
+        current_level = stage_to_level.get(current_stage_id, 0)
+        
+        # Get selected progression level
+        try:
+            selected_level = progression_order.index(status_text)
+        except ValueError:
+            return
+        
+        # VALIDATION: Only allow forward progression
+        if selected_level < current_level:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Invalid Status Change",
+                f"Cannot move backward in case progression.\n\n"
+                f"Current stage: {progression_order[current_level]}\n"
+                f"You can only progress forward to: {', '.join(progression_order[current_level+1:])}"
+            )
+            # Reset dropdown to current status
+            self.status_combo.blockSignals(True)
+            self.status_combo.setCurrentText(progression_order[current_level])
+            self.status_combo.blockSignals(False)
+            return
+        
+        # VALIDATION: Prevent skipping stages (optional - can be removed if skipping is allowed)
+        if selected_level > current_level + 1:
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self,
+                "Skip Stages?",
+                f"You are skipping from '{progression_order[current_level]}' to '{status_text}'.\n\n"
+                f"Are you sure you want to skip intermediate stages?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                # Reset dropdown to current status
+                self.status_combo.blockSignals(True)
+                self.status_combo.setCurrentText(progression_order[current_level])
+                self.status_combo.blockSignals(False)
+                return
+        
         # Map display text to database status
+        # Note: Only Review and Closed are manually settable by investigator
         status_map = {
             "Case Created": "New",
             "Evidence Collected": "Active",
@@ -1442,12 +1563,131 @@ class TimelineView(QWidget):
                 "Update Failed",
                 f"Failed to update case status: {str(e)}"
             )
+            # Reset dropdown to current status
+            self.status_combo.blockSignals(True)
+            self.status_combo.setCurrentText(progression_order[current_level])
+            self.status_combo.blockSignals(False)
     
     def _refresh_progression_bar_only(self):
         """Quickly refresh just the progression bar without reloading timeline."""
-        if not self.case_id:
+        if not self.case_id or not hasattr(self, 'progression_line'):
             return
         
-        # With the new scroll area structure, it's simpler to just reload the timeline
-        # This ensures everything stays in sync
-        self.load_timeline()
+        # Use accurate stage detection
+        current_status = self._detect_accurate_case_stage()
+        
+        # Update dropdown to match current stage
+        stage_to_dropdown = {
+            'created': 'Case Created',
+            'evidence': 'Evidence Collected',
+            'analysis': 'Analysis In Progress',
+            'review': 'Review',
+            'closed': 'Closed'
+        }
+        
+        dropdown_text = stage_to_dropdown.get(current_status, 'Case Created')
+        
+        # Update dropdown without triggering the change event
+        if hasattr(self, 'status_combo'):
+            self.status_combo.blockSignals(True)
+            self.status_combo.setCurrentText(dropdown_text)
+            self.status_combo.blockSignals(False)
+        
+        # Define stages
+        stages = [
+            ("Case Created", "created"),
+            ("Evidence Collected", "evidence"),
+            ("Analysis In Progress", "analysis"),
+            ("Review", "review"),
+            ("Closed", "closed")
+        ]
+        
+        # Determine which stages are complete
+        stage_order = ["created", "evidence", "analysis", "review", "closed"]
+        current_index = stage_order.index(current_status) if current_status in stage_order else 0
+        
+        # Prepare stage data
+        stages_data = []
+        for i, (stage_name, stage_id) in enumerate(stages):
+            is_complete = i < current_index
+            is_current = i == current_index
+            is_future = i > current_index
+            stages_data.append((stage_name, stage_id, is_complete, is_current, is_future))
+        
+        # Update the progression line widget with new data
+        self.progression_line.stages_data = stages_data
+        self.progression_line.update()  # Trigger repaint
+    
+    def _show_milestone_info(self, milestone_data: Dict[str, Any]):
+        """Show milestone information dialog when double-clicked."""
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QTextEdit
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Milestone Information")
+        dialog.setMinimumSize(400, 300)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Title
+        title = QLabel(milestone_data.get('milestone_name', 'Milestone'))
+        title.setFont(QFont("Arial", 16, QFont.Bold))
+        title.setStyleSheet("color: #f59e0b;")
+        layout.addWidget(title)
+        
+        # Date
+        date_label = QLabel(f"Date: {milestone_data.get('milestone_date', 'N/A')}")
+        date_label.setFont(QFont("Arial", 12))
+        date_label.setStyleSheet("color: #e0e6ed;")
+        layout.addWidget(date_label)
+        
+        # Description
+        desc_label = QLabel("Description:")
+        desc_label.setFont(QFont("Arial", 11, QFont.Bold))
+        desc_label.setStyleSheet("color: #40e0d0;")
+        layout.addWidget(desc_label)
+        
+        desc_text = QTextEdit()
+        desc_text.setPlainText(milestone_data.get('description', 'No description provided'))
+        desc_text.setReadOnly(True)
+        desc_text.setFont(QFont("Arial", 11))
+        desc_text.setMaximumHeight(150)
+        layout.addWidget(desc_text)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.setFixedSize(100, 35)
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn, 0, Qt.AlignRight)
+        
+        # Apply styles
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #0a1929;
+                color: #e0e6ed;
+            }
+            QLabel {
+                background: transparent;
+            }
+            QTextEdit {
+                background-color: #0d2137;
+                border: 2px solid #1a4a5a;
+                border-radius: 6px;
+                padding: 10px;
+                color: #e0e6ed;
+            }
+            QPushButton {
+                background-color: #40e0d0;
+                color: #0a1929;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2dd4bf;
+            }
+        """)
+        
+        dialog.exec()

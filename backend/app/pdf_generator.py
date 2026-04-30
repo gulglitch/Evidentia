@@ -46,7 +46,7 @@ class PDFReportGenerator:
         ))
         
         self.styles.add(ParagraphStyle(
-            name='BodyText',
+            name='ReportBody',
             parent=self.styles['Normal'],
             fontSize=10,
             spaceBefore=6,
@@ -195,7 +195,7 @@ class PDFReportGenerator:
         elements.append(Paragraph("Executive Summary", self.styles['SectionHeader']))
         
         description = case_info.get('description', 'No description provided.')
-        elements.append(Paragraph(description, self.styles['BodyText']))
+        elements.append(Paragraph(description, self.styles['ReportBody']))
         
         elements.append(Spacer(1, 15))
         
@@ -235,7 +235,7 @@ class PDFReportGenerator:
         elements.append(Paragraph("Evidence Inventory", self.styles['SectionHeader']))
         
         if not evidence_list:
-            elements.append(Paragraph("No evidence files in this case.", self.styles['BodyText']))
+            elements.append(Paragraph("No evidence files in this case.", self.styles['ReportBody']))
             return elements
         
         # Table header
@@ -326,7 +326,7 @@ class PDFReportGenerator:
         elements.append(Paragraph("Activity Log", self.styles['SectionHeader']))
         
         if not activity_log:
-            elements.append(Paragraph("No activity recorded.", self.styles['BodyText']))
+            elements.append(Paragraph("No activity recorded.", self.styles['ReportBody']))
             return elements
         
         data = [['Timestamp', 'Action', 'Details']]

@@ -391,23 +391,91 @@ class Database:
             )
             return [dict(row) for row in cursor.fetchall()]
     
-    def update_evidence_status(self, evidence_id: int, status: str):
-        """Update the status of an evidence file."""
+    def update_evidence_status(self, evidence_id: int, status: str, user_id: Optional[int] = None, log_activity: bool = True):
+        """
+        Update the status of an evidence file.
+        
+        Args:
+            evidence_id: Evidence ID
+            status: New status value
+            user_id: User ID for activity logging
+            log_activity: Whether to log this change to activity feed
+        """
+        # Get evidence details for logging BEFORE the transaction
+        evidence_row = None
+        if log_activity:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT e.file_name, e.case_id, e.status as old_status FROM evidence e WHERE e.id = ?",
+                    (evidence_id,)
+                )
+                evidence_row = cursor.fetchone()
+        
+        # Update the status
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE evidence SET status = ? WHERE id = ?",
                 (status, evidence_id)
             )
+        
+        # Log the activity in a separate transaction
+        if log_activity and evidence_row:
+            file_name = evidence_row['file_name']
+            case_id = evidence_row['case_id']
+            old_status = evidence_row['old_status']
+            
+            if old_status != status:  # Only log if status actually changed
+                self.log_activity(
+                    case_id=case_id,
+                    user_id=user_id,
+                    action="Evidence Status Updated",
+                    details=f"Changed status of '{file_name}' from {old_status} to {status}"
+                )
     
-    def update_evidence_risk(self, evidence_id: int, risk_level: str):
-        """Update the risk level of an evidence file."""
+    def update_evidence_risk(self, evidence_id: int, risk_level: str, user_id: Optional[int] = None, log_activity: bool = True):
+        """
+        Update the risk level of an evidence file.
+        
+        Args:
+            evidence_id: Evidence ID
+            risk_level: New risk level value
+            user_id: User ID for activity logging
+            log_activity: Whether to log this change to activity feed
+        """
+        # Get evidence details for logging BEFORE the transaction
+        evidence_row = None
+        if log_activity:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT e.file_name, e.case_id, e.risk_level as old_risk FROM evidence e WHERE e.id = ?",
+                    (evidence_id,)
+                )
+                evidence_row = cursor.fetchone()
+        
+        # Update the risk level
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE evidence SET risk_level = ? WHERE id = ?",
                 (risk_level, evidence_id)
             )
+        
+        # Log the activity in a separate transaction
+        if log_activity and evidence_row:
+            file_name = evidence_row['file_name']
+            case_id = evidence_row['case_id']
+            old_risk = evidence_row['old_risk']
+            
+            if old_risk != risk_level:  # Only log if risk actually changed
+                self.log_activity(
+                    case_id=case_id,
+                    user_id=user_id,
+                    action="Risk Level Updated",
+                    details=f"Changed risk level of '{file_name}' from {old_risk} to {risk_level}"
+                )
     
     def search_evidence(self, case_id: int, query: str) -> List[Dict[str, Any]]:
         """Search evidence files by name."""
@@ -427,9 +495,11 @@ class Database:
         """Log an activity for a case."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            # Use explicit local timestamp instead of CURRENT_TIMESTAMP
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute(
-                "INSERT INTO activity_log (case_id, user_id, action, details) VALUES (?, ?, ?, ?)",
-                (case_id, user_id, action, details)
+                "INSERT INTO activity_log (case_id, user_id, action, details, timestamp) VALUES (?, ?, ?, ?, ?)",
+                (case_id, user_id, action, details, timestamp)
             )
     
     def get_recent_activity(self, case_id: int = None, limit: int = 10, user_id: int = None) -> List[Dict[str, Any]]:
@@ -437,9 +507,9 @@ class Database:
         Get recent activity for a case or all cases for a user.
         
         Args:
-            case_id: Optional case ID to filter by
+            case_id: Optional case ID to filter by (None = all cases)
             limit: Maximum number of activities to return
-            user_id: Optional user ID to filter by
+            user_id: Optional user ID to filter by (None = all users)
             
         Returns:
             List of activity log entries with user and case information
@@ -447,12 +517,20 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
-            # Build query based on filters
+            # Build comprehensive query with all context
             query = """
                 SELECT 
-                    al.*,
+                    al.id,
+                    al.case_id,
+                    al.user_id,
+                    al.action,
+                    al.details,
+                    al.timestamp,
                     u.full_name as user_name,
-                    c.name as case_name
+                    u.username,
+                    c.name as case_name,
+                    c.status as case_status,
+                    c.case_type
                 FROM activity_log al
                 LEFT JOIN users u ON al.user_id = u.id
                 LEFT JOIN cases c ON al.case_id = c.id
@@ -475,8 +553,44 @@ class Database:
             return [dict(row) for row in cursor.fetchall()]
     
     def get_all_recent_activity(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get recent activity across all cases."""
-        return self.get_recent_activity(case_id=None, limit=limit)
+        """
+        Get recent activity across ALL cases and ALL users (truly global).
+        
+        Args:
+            limit: Maximum number of activities to return
+            
+        Returns:
+            List of activity log entries with full context
+        """
+        return self.get_recent_activity(case_id=None, limit=limit, user_id=None)
+    
+    def get_activity_count(self, case_id: int = None, user_id: int = None) -> int:
+        """
+        Get total count of activities.
+        
+        Args:
+            case_id: Optional case ID to filter by
+            user_id: Optional user ID to filter by
+            
+        Returns:
+            Total count of activities matching filters
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT COUNT(*) as count FROM activity_log WHERE 1=1"
+            params = []
+            
+            if case_id is not None:
+                query += " AND case_id = ?"
+                params.append(case_id)
+            
+            if user_id is not None:
+                query += " AND user_id = ?"
+                params.append(user_id)
+            
+            cursor.execute(query, params)
+            return cursor.fetchone()['count']
     
     # ──────────────────────────────────────────────
     # Statistics
@@ -728,14 +842,29 @@ class Database:
     # Status tracking operations (US-05)
     # ──────────────────────────────────────────────
     
-    def bulk_update_status(self, evidence_ids: List[int], status: str):
+    def bulk_update_status(self, evidence_ids: List[int], status: str, user_id: Optional[int] = None, log_activity: bool = True):
         """
         Update status for multiple evidence files.
         
         Args:
             evidence_ids: List of evidence IDs
             status: New status value
+            user_id: User ID for activity logging
+            log_activity: Whether to log this change to activity feed
         """
+        # Get evidence details for logging BEFORE the transaction
+        evidence_rows = []
+        if log_activity and evidence_ids:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                placeholders = ','.join('?' * len(evidence_ids))
+                cursor.execute(
+                    f"SELECT e.id, e.file_name, e.case_id, e.status as old_status FROM evidence e WHERE e.id IN ({placeholders})",
+                    evidence_ids
+                )
+                evidence_rows = cursor.fetchall()
+        
+        # Update the statuses
         with self._get_connection() as conn:
             cursor = conn.cursor()
             placeholders = ','.join('?' * len(evidence_ids))
@@ -743,14 +872,61 @@ class Database:
                 f"UPDATE evidence SET status = ? WHERE id IN ({placeholders})",
                 [status] + evidence_ids
             )
+        
+        # Log activities for each evidence file in separate transactions
+        if log_activity and evidence_rows:
+            for evidence_row in evidence_rows:
+                file_name = evidence_row['file_name']
+                case_id = evidence_row['case_id']
+                old_status = evidence_row['old_status']
+                
+                if old_status != status:  # Only log if status actually changed
+                    self.log_activity(
+                        case_id=case_id,
+                        user_id=user_id,
+                        action="Evidence Status Updated",
+                        details=f"Changed status of '{file_name}' from {old_status} to {status}"
+                    )
     
-    def update_evidence_notes(self, evidence_id: int, notes: str):
-        """Update notes for an evidence file."""
+    def update_evidence_notes(self, evidence_id: int, notes: str, user_id: Optional[int] = None, log_activity: bool = True):
+        """
+        Update notes for an evidence file.
+        
+        Args:
+            evidence_id: Evidence ID
+            notes: New notes content
+            user_id: User ID for activity logging
+            log_activity: Whether to log this change to activity feed
+        """
+        # Get evidence details for logging BEFORE the transaction
+        evidence_row = None
+        if log_activity:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT e.file_name, e.case_id FROM evidence e WHERE e.id = ?",
+                    (evidence_id,)
+                )
+                evidence_row = cursor.fetchone()
+        
+        # Update the notes
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE evidence SET notes = ? WHERE id = ?",
                 (notes, evidence_id)
+            )
+        
+        # Log the activity in a separate transaction
+        if log_activity and evidence_row:
+            file_name = evidence_row['file_name']
+            case_id = evidence_row['case_id']
+            
+            self.log_activity(
+                case_id=case_id,
+                user_id=user_id,
+                action="Evidence Notes Updated",
+                details=f"Updated notes for '{file_name}'"
             )
     
     def get_evidence_notes(self, evidence_id: int) -> Optional[str]:

@@ -80,7 +80,7 @@ class ActivityItem(QFrame):
                 background-color: #0d2137;
                 border: 2px solid #1a4a5a;
                 border-radius: 8px;
-                padding: 12px;
+                padding: 8px;
             }
             QFrame:hover {
                 background-color: #122a3a;
@@ -89,7 +89,12 @@ class ActivityItem(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(8)
+        layout.setSpacing(4)  # Balanced spacing
+        layout.setContentsMargins(10, 8, 10, 8)  # Balanced padding
+        
+        # Increased height to prevent text cutoff
+        self.setMaximumHeight(130)
+        self.setMinimumHeight(120)
         
         # Header row: action and timestamp
         header_layout = QHBoxLayout()
@@ -98,7 +103,7 @@ class ActivityItem(QFrame):
         action_text = activity.get('action', 'Unknown Action')
         icon = self._get_action_icon(action_text)
         action_label = QLabel(f"{icon} {action_text}")
-        action_label.setFont(QFont("Arial", 12, QFont.Bold))
+        action_label.setFont(QFont("Arial", 10, QFont.Bold))  # Increased for readability
         action_label.setStyleSheet(f"color: {self._get_action_color(action_text)}; background: transparent; border: none;")
         header_layout.addWidget(action_label)
         
@@ -107,7 +112,7 @@ class ActivityItem(QFrame):
         # Timestamp
         timestamp = activity.get('timestamp', '')
         time_label = QLabel(self._format_timestamp(timestamp))
-        time_label.setFont(QFont("Arial", 10))
+        time_label.setFont(QFont("Arial", 8))  # Increased for readability
         time_label.setStyleSheet("color: #6c7086; background: transparent; border: none;")
         header_layout.addWidget(time_label)
         
@@ -117,7 +122,7 @@ class ActivityItem(QFrame):
         details = activity.get('details', '')
         if details:
             details_label = QLabel(details)
-            details_label.setFont(QFont("Arial", 11, QFont.Bold))
+            details_label.setFont(QFont("Arial", 9))  # Increased for readability
             details_label.setStyleSheet("color: #e0e6ed; background: transparent; border: none;")
             details_label.setWordWrap(True)
             layout.addWidget(details_label)
@@ -128,7 +133,7 @@ class ActivityItem(QFrame):
         case_id = activity.get('case_id', 'N/A')
         case_name = activity.get('case_name', 'Unknown Case')
         case_label = QLabel(f"Case #{case_id}: {case_name}")
-        case_label.setFont(QFont("Arial", 10, QFont.Bold))
+        case_label.setFont(QFont("Arial", 8))  # Increased for readability
         case_label.setStyleSheet("color: #40e0d0; background: transparent; border: none;")
         footer_layout.addWidget(case_label)
         
@@ -137,7 +142,7 @@ class ActivityItem(QFrame):
         user_name = activity.get('user_name', 'Unknown User')
         if user_name and user_name != 'Unknown User':
             user_label = QLabel(f"by {user_name}")
-            user_label.setFont(QFont("Arial", 10))
+            user_label.setFont(QFont("Arial", 8))  # Increased for readability
             user_label.setStyleSheet("color: #8899aa; background: transparent; border: none;")
             footer_layout.addWidget(user_label)
         
@@ -187,13 +192,21 @@ class ActivityItem(QFrame):
             return 'Unknown time'
         
         try:
+            # Parse timestamp - handle both ISO format and SQLite format
             if isinstance(timestamp_str, str):
+                # SQLite format: 'YYYY-MM-DD HH:MM:SS'
+                # ISO format: 'YYYY-MM-DDTHH:MM:SS'
+                timestamp_str = timestamp_str.replace(' ', 'T')  # Convert SQLite format to ISO
                 dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
             else:
                 dt = timestamp_str
             
             now = datetime.now()
-            diff = now - dt.replace(tzinfo=None)
+            # Ensure both are naive datetimes for comparison
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            
+            diff = now - dt
             
             # Show relative time for recent activities
             if diff.days == 0:
@@ -211,7 +224,8 @@ class ActivityItem(QFrame):
                 return f'{diff.days} days ago'
             else:
                 return dt.strftime('%b %d, %Y at %I:%M %p')
-        except:
+        except Exception as e:
+            # Fallback: return the raw timestamp string
             return str(timestamp_str) if timestamp_str else 'Unknown time'
 
 
@@ -361,7 +375,7 @@ class QuickStatsDashboard(QWidget):
         # Activity feed container
         self.activity_container = QWidget()
         self.activity_layout = QVBoxLayout(self.activity_container)
-        self.activity_layout.setSpacing(10)
+        self.activity_layout.setSpacing(6)  # Reduced from 10
         self.activity_layout.setContentsMargins(0, 0, 0, 0)
         
         scroll_area.setWidget(self.activity_container)
@@ -400,9 +414,9 @@ class QuickStatsDashboard(QWidget):
         """)
     
     def load_data(self):
-        """Load statistics and activity data."""
-        # Load stats
-        stats = self.database.get_dashboard_stats(user_id=self.current_user_id)
+        """Load statistics and activity data - FULLY GLOBAL."""
+        # Load stats - GLOBAL (no user_id filter)
+        stats = self.database.get_dashboard_stats(user_id=None)
         
         # Update stat card values properly
         self._update_stat_card(self.total_cases_card, str(stats.get('total_cases', 0)))
@@ -421,11 +435,11 @@ class QuickStatsDashboard(QWidget):
         completion_rate = stats.get('completion_rate', 0.0)
         self._update_stat_card(self.completion_rate_card, f"{completion_rate}%")
         
-        # Load recent activity
+        # Load recent activity - FULLY GLOBAL (no user_id filter)
         activities = self.database.get_recent_activity(
             case_id=None,
             limit=20,
-            user_id=self.current_user_id
+            user_id=None  # Changed from self.current_user_id to None for global feed
         )
         
         self._populate_activity_feed(activities)

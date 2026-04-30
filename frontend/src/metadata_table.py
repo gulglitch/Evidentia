@@ -54,9 +54,10 @@ class MetadataTable(QWidget):
     timeline_requested = Signal()
     analytics_requested = Signal()
     
-    def __init__(self, case_id: int = None):
+    def __init__(self, case_id: int = None, user_id: int = None):
         super().__init__()
         self.case_id = case_id
+        self.user_id = user_id
         self.database = Database()
         self.search_engine = SearchEngine()
         self.all_evidence = []
@@ -67,9 +68,11 @@ class MetadataTable(QWidget):
             self.load_evidence()
             self._load_search_history()
     
-    def set_case_id(self, case_id: int):
+    def set_case_id(self, case_id: int, user_id: int = None):
         """Set the current case ID and reload evidence."""
         self.case_id = case_id
+        if user_id is not None:
+            self.user_id = user_id
         self.load_evidence()
     
     def _add_status_controls(self, main_layout):
@@ -749,16 +752,14 @@ class MetadataTable(QWidget):
         
         if new_status and new_status != current_status:
             try:
-                self.database.update_evidence_status(evidence_id, new_status)
-                evidence['status'] = new_status
-                
-                # Log activity
-                file_name = evidence.get('file_name', 'Unknown file')
-                self.database.log_activity(
-                    case_id=self.case_id,
-                    action="Evidence Status Updated",
-                    details=f"Changed status of '{file_name}' to {new_status}"
+                # Update status with user_id for activity logging
+                self.database.update_evidence_status(
+                    evidence_id, 
+                    new_status, 
+                    user_id=self.user_id,
+                    log_activity=True
                 )
+                evidence['status'] = new_status
                 
                 # Update table cell
                 status_item = self.table.item(row, 7)
@@ -820,16 +821,14 @@ class MetadataTable(QWidget):
         
         if new_risk and new_risk != current_risk:
             try:
-                self.database.update_evidence_risk(evidence_id, new_risk)
-                evidence['risk_level'] = new_risk
-                
-                # Log activity
-                file_name = evidence.get('file_name', 'Unknown file')
-                self.database.log_activity(
-                    case_id=self.case_id,
-                    action="Risk Level Updated",
-                    details=f"Changed risk level of '{file_name}' from {current_risk} to {new_risk}"
+                # Update risk level with user_id for activity logging
+                self.database.update_evidence_risk(
+                    evidence_id, 
+                    new_risk, 
+                    user_id=self.user_id,
+                    log_activity=True
                 )
+                evidence['risk_level'] = new_risk
                 
                 # Update table cell
                 risk_item = self.table.item(row, 8)
@@ -865,7 +864,13 @@ class MetadataTable(QWidget):
         if dialog.exec():
             new_notes = dialog.get_notes()
             try:
-                self.database.update_evidence_notes(evidence_id, new_notes)
+                # Update notes with user_id for activity logging
+                self.database.update_evidence_notes(
+                    evidence_id, 
+                    new_notes, 
+                    user_id=self.user_id,
+                    log_activity=True
+                )
                 if evidence is not None:
                     evidence['notes'] = new_notes
                 self._refresh_notes_cells(evidence_id, new_notes)
@@ -961,9 +966,14 @@ class MetadataTable(QWidget):
         
         if reply == QMessageBox.Yes:
             try:
-                # Update database
+                # Update database with user_id for activity logging
                 ids_only = [eid for eid, _ in selected_ids]
-                self.database.bulk_update_status(ids_only, new_status)
+                self.database.bulk_update_status(
+                    ids_only, 
+                    new_status, 
+                    user_id=self.user_id,
+                    log_activity=True
+                )
                 
                 # Update table
                 for evidence_id, row in selected_ids:

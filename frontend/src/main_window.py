@@ -26,6 +26,7 @@ from .analytics_dashboard import AnalyticsDashboard
 from .quick_stats_dashboard import QuickStatsDashboard
 from .new_case_dialog import NewCaseDialog
 from .case_home import CaseHome
+from .report_generator import ReportGenerator
 from backend.app.database import Database
 
 
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow):
         self.metadata_table = None  # Created when needed
         self.timeline_view = None  # Created when needed
         self.analytics_dashboard = None  # Created when needed
+        self.report_generator = None  # Created when needed
         
         # Add screens to stack
         self.stacked_widget.addWidget(self.splash_screen)
@@ -233,6 +235,8 @@ class MainWindow(QMainWindow):
     
     def _show_case_management(self):
         """Show the case management screen."""
+        # Reset the workflow to ensure we start from step 1
+        self.case_management.reset_workflow()
         self.stacked_widget.setCurrentWidget(self.case_management)
     
     def _handle_case_selected(self, case_id: int):
@@ -270,6 +274,7 @@ class MainWindow(QMainWindow):
             self.case_home.evidence_requested.connect(self._show_metadata_table)
             self.case_home.timeline_requested.connect(self._show_timeline_view)
             self.case_home.analytics_requested.connect(self._show_analytics_dashboard)
+            self.case_home.report_requested.connect(self._show_report_generator)
             self.stacked_widget.addWidget(self.case_home)
             self.case_home.set_investigator_name(investigator_name)
         else:
@@ -318,11 +323,17 @@ class MainWindow(QMainWindow):
     def _show_metadata_table(self):
         """Show the metadata table screen."""
         if self.metadata_table is None:
-            self.metadata_table = MetadataTable(self.current_case_id)
+            self.metadata_table = MetadataTable(
+                self.current_case_id, 
+                user_id=self.current_user_id
+            )
             self.metadata_table.back_requested.connect(self._show_case_home)
             self.stacked_widget.addWidget(self.metadata_table)
         else:
-            self.metadata_table.set_case_id(self.current_case_id)
+            self.metadata_table.set_case_id(
+                self.current_case_id, 
+                user_id=self.current_user_id
+            )
         
         # Update status bar
         case = self._get_case_for_current_user(self.current_case_id)
@@ -363,6 +374,23 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Analytics for: {case['name']}")
         
         self.stacked_widget.setCurrentWidget(self.analytics_dashboard)
+    
+    def _show_report_generator(self):
+        """Show the report generator screen."""
+        if self.report_generator is None:
+            self.report_generator = ReportGenerator(self.current_case_id, self.current_user_id)
+            self.report_generator.back_requested.connect(self._show_case_home)
+            self.stacked_widget.addWidget(self.report_generator)
+        else:
+            self.report_generator.set_case_id(self.current_case_id)
+            self.report_generator.set_user_id(self.current_user_id)
+        
+        # Update status bar
+        case = self._get_case_for_current_user(self.current_case_id)
+        if case:
+            self.statusbar.showMessage(f"Generate report for: {case['name']}")
+        
+        self.stacked_widget.setCurrentWidget(self.report_generator)
     
     def _handle_case_created(self, case_id: int):
         """Handle new case creation."""

@@ -288,6 +288,27 @@ class CaseManagement(QWidget):
         """Set current user context for case creation and updates."""
         self.current_user_id = user_id
     
+    def reset_workflow(self):
+        """Reset the case creation workflow to start fresh."""
+        # Clear all input fields
+        self.case_name_input.clear()
+        self.case_desc_input.clear()
+        
+        # Reset state variables
+        self.current_case_id = None
+        self.selected_case_type = None
+        
+        # Deselect all case type cards
+        for card in self.type_cards:
+            card.set_selected(False)
+        
+        # Hide error messages
+        self.step1_error.setVisible(False)
+        self.step2_error.setVisible(False)
+        
+        # Reset to step 1
+        self.stack.setCurrentIndex(0)
+    
     def _setup_ui(self):
         """Setup the case management UI with stacked steps."""
         main_layout = QVBoxLayout(self)

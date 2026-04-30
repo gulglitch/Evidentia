@@ -4,13 +4,61 @@ Simple case workspace hub for navigating Sprint 2 modules.
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGridLayout
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGridLayout, QGraphicsDropShadowEffect
 )
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, Property, QPoint
+from PySide6.QtGui import QFont, QColor
 from datetime import datetime
 
 from backend.app.database import Database
+
+
+class AnimatedModuleButton(QPushButton):
+    """Custom animated button with glow effect for module selection."""
+    
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self.setObjectName("moduleBtn")
+        self.setMinimumSize(280, 120)
+        self.setCursor(Qt.PointingHandCursor)
+        
+        # Add glow effect
+        self.glow = QGraphicsDropShadowEffect()
+        self.glow.setBlurRadius(20)
+        self.glow.setColor(QColor(64, 224, 208, 100))
+        self.glow.setOffset(0, 0)
+        self.setGraphicsEffect(self.glow)
+        
+        # Animation for hover
+        self._glow_intensity = 100
+        self.glow_animation = QPropertyAnimation(self, b"glowIntensity")
+        self.glow_animation.setDuration(300)
+        self.glow_animation.setEasingCurve(QEasingCurve.InOutQuad)
+    
+    def get_glow_intensity(self):
+        return self._glow_intensity
+    
+    def set_glow_intensity(self, value):
+        self._glow_intensity = value
+        self.glow.setColor(QColor(64, 224, 208, value))
+    
+    glowIntensity = Property(int, get_glow_intensity, set_glow_intensity)
+    
+    def enterEvent(self, event):
+        """Animate glow on hover."""
+        self.glow_animation.stop()
+        self.glow_animation.setStartValue(self._glow_intensity)
+        self.glow_animation.setEndValue(200)
+        self.glow_animation.start()
+        super().enterEvent(event)
+    
+    def leaveEvent(self, event):
+        """Fade glow on leave."""
+        self.glow_animation.stop()
+        self.glow_animation.setStartValue(self._glow_intensity)
+        self.glow_animation.setEndValue(100)
+        self.glow_animation.start()
+        super().leaveEvent(event)
 
 
 class CaseHome(QWidget):
@@ -21,6 +69,7 @@ class CaseHome(QWidget):
     evidence_requested = Signal()
     timeline_requested = Signal()
     analytics_requested = Signal()
+    report_requested = Signal()
 
     def __init__(self, case_id: int = None):
         super().__init__()
@@ -76,6 +125,14 @@ class CaseHome(QWidget):
 
         summary_frame = QFrame()
         summary_frame.setObjectName("infoCard")
+        
+        # Add shadow effect to summary card
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        shadow.setOffset(0, 4)
+        summary_frame.setGraphicsEffect(shadow)
+        
         summary_layout = QVBoxLayout(summary_frame)
         summary_layout.setContentsMargins(20, 16, 20, 16)
         summary_layout.setSpacing(8)
@@ -92,6 +149,14 @@ class CaseHome(QWidget):
 
         dates_frame = QFrame()
         dates_frame.setObjectName("infoCard")
+        
+        # Add shadow effect to dates card
+        shadow2 = QGraphicsDropShadowEffect()
+        shadow2.setBlurRadius(15)
+        shadow2.setColor(QColor(0, 0, 0, 80))
+        shadow2.setOffset(0, 4)
+        dates_frame.setGraphicsEffect(shadow2)
+        
         dates_layout = QVBoxLayout(dates_frame)
         dates_layout.setContentsMargins(20, 16, 20, 16)
         dates_layout.setSpacing(8)
@@ -108,6 +173,14 @@ class CaseHome(QWidget):
 
         evidence_frame = QFrame()
         evidence_frame.setObjectName("infoCard")
+        
+        # Add shadow effect to evidence card
+        shadow3 = QGraphicsDropShadowEffect()
+        shadow3.setBlurRadius(15)
+        shadow3.setColor(QColor(0, 0, 0, 80))
+        shadow3.setOffset(0, 4)
+        evidence_frame.setGraphicsEffect(shadow3)
+        
         evidence_layout = QVBoxLayout(evidence_frame)
         evidence_layout.setContentsMargins(20, 16, 20, 16)
         evidence_layout.setSpacing(8)
@@ -128,6 +201,14 @@ class CaseHome(QWidget):
 
         overview_frame = QFrame()
         overview_frame.setObjectName("overviewFrame")
+        
+        # Add shadow effect to overview frame
+        shadow4 = QGraphicsDropShadowEffect()
+        shadow4.setBlurRadius(15)
+        shadow4.setColor(QColor(0, 0, 0, 100))
+        shadow4.setOffset(0, 4)
+        overview_frame.setGraphicsEffect(shadow4)
+        
         overview_layout = QVBoxLayout(overview_frame)
         overview_layout.setContentsMargins(20, 16, 20, 16)
         overview_layout.setSpacing(10)
@@ -154,30 +235,29 @@ class CaseHome(QWidget):
         module_title.setStyleSheet("color: #00d4aa;")
         main_layout.addWidget(module_title)
 
-        module_layout = QVBoxLayout()
-        module_layout.setSpacing(16)
+        # 2x2 Grid layout for module buttons
+        module_grid = QGridLayout()
+        module_grid.setSpacing(20)
+        module_grid.setContentsMargins(40, 10, 40, 10)
 
-        evidence_btn = QPushButton("Evidence Management")
-        evidence_btn.setObjectName("moduleBtn")
-        evidence_btn.setFixedWidth(360)
+        # Create animated buttons without icons
+        evidence_btn = AnimatedModuleButton("Evidence Management")
         evidence_btn.clicked.connect(self.evidence_requested.emit)
-        module_layout.addWidget(evidence_btn, 0, Qt.AlignHCenter)
+        module_grid.addWidget(evidence_btn, 0, 0)
 
-        timeline_btn = QPushButton("Timeline View")
-        timeline_btn.setObjectName("moduleBtn")
-        timeline_btn.setFixedWidth(360)
+        timeline_btn = AnimatedModuleButton("Timeline View")
         timeline_btn.clicked.connect(self.timeline_requested.emit)
-        module_layout.addWidget(timeline_btn, 0, Qt.AlignHCenter)
+        module_grid.addWidget(timeline_btn, 0, 1)
 
-        analytics_btn = QPushButton("Analytics View")
-        analytics_btn.setObjectName("moduleBtn")
-        analytics_btn.setFixedWidth(360)
+        analytics_btn = AnimatedModuleButton("Analytics View")
         analytics_btn.clicked.connect(self.analytics_requested.emit)
-        module_layout.addWidget(analytics_btn, 0, Qt.AlignHCenter)
+        module_grid.addWidget(analytics_btn, 1, 0)
 
-        module_layout.setAlignment(Qt.AlignTop)
+        report_btn = AnimatedModuleButton("Generate Final Report")
+        report_btn.clicked.connect(self.report_requested.emit)
+        module_grid.addWidget(report_btn, 1, 1)
 
-        main_layout.addLayout(module_layout)
+        main_layout.addLayout(module_grid)
 
         main_layout.addStretch(1)
 
@@ -239,29 +319,62 @@ class CaseHome(QWidget):
                 background: transparent;
             }
             QFrame#infoCard {
-                background-color: #0d2137;
-                border: 1px solid #1a4a5a;
-                border-radius: 0px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0d2137, stop:1 #0a1929);
+                border: 2px solid #1a4a5a;
+                border-radius: 10px;
+                padding: 4px;
+            }
+            QFrame#infoCard:hover {
+                border: 2px solid #40e0d0;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #1a4a5a, stop:1 #0d2137);
             }
             QFrame#overviewFrame {
-                background-color: #143947;
-                border: 1px solid #1a4a5a;
-                border-radius: 0px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #143947, stop:0.5 #0d2137, stop:1 #143947);
+                border: 2px solid #2a5a6a;
+                border-radius: 10px;
+                padding: 4px;
             }
             QPushButton {
-                background-color: #40e0d0;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #40e0d0, stop:1 #2dd4bf);
                 color: #0a1929;
                 border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
+                border-radius: 8px;
+                padding: 10px 18px;
                 font-weight: bold;
+                font-size: 13px;
             }
             QPushButton:hover {
-                background-color: #2dd4bf;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #2dd4bf, stop:1 #00d4aa);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00d4aa, stop:1 #00b899);
             }
             QPushButton#moduleBtn {
-                min-height: 50px;
-                font-size: 14px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0d2137, stop:0.5 #1a4a5a, stop:1 #0d2137);
+                color: #40e0d0;
+                border: 2px solid #40e0d0;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
                 text-align: center;
+                padding: 20px;
+            }
+            QPushButton#moduleBtn:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1a4a5a, stop:0.5 #2a5a6a, stop:1 #1a4a5a);
+                color: #00d4aa;
+                border: 2px solid #00d4aa;
+            }
+            QPushButton#moduleBtn:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #0a1929, stop:0.5 #143947, stop:1 #0a1929);
+                border: 2px solid #2dd4bf;
             }
         """)
